@@ -1,0 +1,3 @@
+/tmp/ccsjaFA6.o: In function `main':
+main.c:(.text+0x10): undefined reference to `inicia'
+collect2: error: ld returned 1 exit status

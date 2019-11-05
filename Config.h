@@ -4,3 +4,5 @@ typedef struct{
 
 }config;
 typedef struct config* p_config;
+
+void inicia(FILE *f);

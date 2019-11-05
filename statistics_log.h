@@ -14,4 +14,8 @@ typedef struct{
 }Statistic
 typedef Statistic* p_sta;
 
+
+//statistics functions
 void update_statistic();
+
+//log functions

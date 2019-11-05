@@ -6,9 +6,12 @@ typedef struct{
     double average_wait_time_landing,average_wait_time_taking_of;
 
     //average maneuvers number
+    int total_holds,total_holds_urgency;
     int sum_number_holds,sum_number_holds_urgency;
     double average_number_holds,average_number_holds_urgency;
 
     int number_redirected_flights,rejected_flights;
 }Statistic
 typedef Statistic* p_sta;
+
+void update_statistic();

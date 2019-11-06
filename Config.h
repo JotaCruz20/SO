@@ -1,7 +1,10 @@
-typedef struct{
-  int ut,D,A;
-  double hld_min,hld_max,T,dt,L,dl;
-}config;
-typedef struct config* p_config;
+#include <stdio.h>
+#include <stdlib.h>
+#include <error.h>
 
-void inicia(FILE *f);
+typedef struct{
+  int ut,D,A,hld_min,hld_max;
+  double T,dt,L,dl;
+}config;
+
+config* inicia(char*);

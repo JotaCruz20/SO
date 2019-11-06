@@ -12,7 +12,7 @@ void update_statistic(p_sta statistic){
 }
 
 
-void new_command(FILE* f, char* command){
+void new_command(FILE *f, char* command){
   char* stime = current_time();
   char *keep_command;
   keep_command=(char*)malloc(sizeof(command));

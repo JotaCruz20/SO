@@ -19,6 +19,6 @@ typedef Statistic* p_sta;
 void update_statistic();
 
 //log functions
-void new_command(char* command);
+void new_command(FILE*f , char* command);
 char* current_time();
 int verify_command(char* command);

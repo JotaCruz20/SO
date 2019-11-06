@@ -12,13 +12,15 @@ void update_statistic(p_sta statistic){
 }
 
 
-void new_command(char* command){
+void new_command(FILE* f, char* command){
   char* stime = current_time();
-  if(verify_command(command)==0){}
+  if(verify_command(command)==0){
     printf("%s WRONG COMMAND => %s\n",stime,command);
+    fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
   }
-  else(verify_command(command)==1){
+  else if(verify_command(command)==1){
     printf("%s NEW COMMAND => %s\n",stime, command);
+    fprintf(f,"%s NEW COMMAND => %s\n",stime, command);
   }
 }
 

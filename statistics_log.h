@@ -11,7 +11,7 @@ typedef struct{
     double average_number_holds,average_number_holds_urgency;
 
     int number_redirected_flights,rejected_flights;
-}Statistic
+}Statistic;
 typedef Statistic* p_sta;
 
 

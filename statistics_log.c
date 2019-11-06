@@ -14,11 +14,13 @@ void update_statistic(p_sta statistic){
 
 void new_command(FILE* f, char* command){
   char* stime = current_time();
-  if(verify_command(command)==0){
+  char *keep_command;
+  keep_command=(char*)malloc(sizeof(command));
+  if(verify_command(keep_command)==0){
     printf("%s WRONG COMMAND => %s\n",stime,command);
     fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
   }
-  else if(verify_command(command)==1){
+  else{
     printf("%s NEW COMMAND => %s\n",stime, command);
     fprintf(f,"%s NEW COMMAND => %s\n",stime, command);
   }
@@ -70,7 +72,7 @@ int verify_command(char* command){
     }
   else if(strcmp(token,"DEPARTURE")==0){
     token=strtok(NULL," ");
-    if(*(token)=='T' && *(token+1)=='P'){
+    if(token[0]=='T' && token[1]=='P'){
       for(i=2;token[i]!='\0';i++){
         if(token[i]<48 || token[i]>57)
           return 0;

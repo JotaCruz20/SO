@@ -1,6 +1,7 @@
 #include "statistics_log.h"
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 
 
 void update_statistic(p_sta statistic){
@@ -21,6 +22,7 @@ void new_command(char* command){
   }
 }
 
+
 char* current_time(){
   char stime[50];
   time_t rawtime;
@@ -32,15 +34,17 @@ char* current_time(){
   return stime;
 }
 
+
 int verify_command(char* command){
-  char token[10],token1[10],token2[10],token3[10],token4[10],token5[10];
-  int flag,i;
+  char *token,*token1,*token2,*token3,*token4,*token5;
+  int i;
   token=strtok(command," ");
   if(strcmp(token,"ARRIVAL")==0){
     token=strtok(NULL," ");
-    if(token[0]='T' && token[1]='P'){
+    token[strlen(token)-1]='\0';
+    if(token[0]=='T' && token[1]=='P'){
       for(i=2;token[i]!='\0';i++){
-        if(token[i]>48 || token[i]<57)
+        if(token[i]<48 || token[i]>57)
           return 0;
       }
       token=strtok(NULL," ");
@@ -49,17 +53,39 @@ int verify_command(char* command){
       token3=strtok(NULL," ");
       token4=strtok(NULL," ");
       token5=strtok(NULL," ");
-      if(strcmp())
+      if(strcmp(token,"init:")==0 && strcmp(token2,"eta:")==0 && strcmp(token4,"fuel:")==0){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3)){
+          return 1;
+        }
+        else
+          return 0;
+      }
+      else
+        return 0;
     }
     else
       return 0;
-
-  }
+    }
   else if(strcmp(token,"DEPARTURE")==0){
     token=strtok(NULL," ");
-    if(token[0]='T' && token[1]='P'){
-      //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+    if(*(token)=='T' && *(token+1)=='P'){
+      for(i=2;token[i]!='\0';i++){
+        if(token[i]<48 || token[i]>57)
+          return 0;
+      }
+      token=strtok(NULL," ");
+      token1=strtok(NULL," ");
+      token2=strtok(NULL," ");
+      token3=strtok(NULL," ");
+      if(strcmp(token,"init:")==0 && strcmp(token2,"takeoff:")==0){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && atoi(token1)<atoi(token3)){
+          return 1;
+        }
+        else
+          return 0;
+      }
+      else
+        return 0;
     }
     else
       return 0;

@@ -1,5 +1,5 @@
 prog:	main.o Config.o statistics_log.o
-			gcc -g -o prog main.o Config.o statistics_log,o
+			gcc -g -o prog main.o Config.o statistics_log.o
 
 Config.o:	Config.h Config.c
 			gcc -Wall -pthread -c -g Config.c

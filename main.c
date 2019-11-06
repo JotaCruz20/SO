@@ -20,9 +20,8 @@ typedef struct{
 }Sta_log_time;
 typedef Sta_log_time* p_sta_log_time;
 
-Sta_log_time shmid_sta_log_time;
+int shmid_sta_log_time;
 Sta_log_time * shared_var_sta_log_time;
-pid_t childs[NUM_READERS + NUM_WRITERS];
 sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 
 
@@ -31,21 +30,25 @@ sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 
 
 
-void initialize(){
+void initialize_shm(){
   if((shmid_sta_log_time=shmget(IPC_PRIVATE,sizeof(Sta_log_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
     perror("error in shmget with Sta_log_time");
     exit(1);
   }
-
+  else
+    printf("hello" );
   // Attach shared memory Sta_log_time
   /*insert code here*/
-  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
+  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time  ,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
+  else
+    printf("world");
 }
 
 int main(){
   config* p_config;
+  initialize_shm();
   p_config=inicia("config.txt");
 }

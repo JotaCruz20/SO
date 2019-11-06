@@ -1,5 +1,6 @@
+#include <stdio.h>
 typedef struct{
-    int created_flights,landed_flights,take_of_flighs;
+    int created_flights,landed_flights,take_of_flights;
 
     //average waiting times
     int sum_wait_time_landing,sum_wait_time_taking_of;
@@ -19,6 +20,6 @@ typedef Statistic* p_sta;
 void update_statistic();
 
 //log functions
-void new_command(FILE*f , char* command);
+void new_command(FILE *f, char* command);
 char* current_time();
 int verify_command(char* command);

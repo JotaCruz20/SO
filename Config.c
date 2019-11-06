@@ -4,6 +4,8 @@
 #include <string.h>
 #include "Config.h"
 #define DEBUG //remove this line to remove debug messages
+
+
 config* inicia(char* path){//vai inicializar a strct do file
   char buffer[20];
   char* p_buffer;

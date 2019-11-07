@@ -17,11 +17,11 @@ typedef struct{
     Statistic statistics;
     config configuration;
     time_t time_init;
-}Sta_log_time;
-typedef Sta_log_time* p_sta_log_time;
+}Sta_config_time;
+typedef Sta_config_time* p_sta_config_time;
 
-int shmid_sta_log_time;
-Sta_log_time * shared_var_sta_log_time;
+int shmid_sta_config_time;
+Sta_config_time * shared_var_sta_config_time;
 sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 
 
@@ -31,16 +31,16 @@ sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 
 
 void initialize_shm(){
-  if((shmid_sta_log_time=shmget(IPC_PRIVATE,sizeof(Sta_log_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
-    perror("error in shmget with Sta_log_time");
+  if((shmid_sta_config_time=shmget(IPC_PRIVATE,sizeof(Sta_config_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
+    perror("error in shmget with Sta_config_time");
     exit(1);
   }
   else
     printf("hello" );
   // Attach shared memory Sta_log_time
   /*insert code here*/
-  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time  ,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
-    perror("error in shmat with Sta_log_time");
+  if((shared_var_sta_config_time=(Sta_config_time*) shmat(shmid_sta_config_time  ,NULL,0))==(Sta_config_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
+    perror("error in shmat with Sta_config_time");
     exit(1);
   }
   else

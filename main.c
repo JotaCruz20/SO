@@ -9,25 +9,13 @@
 #include <semaphore.h>
 #include <fcntl.h>
 #include <sys/fcntl.h>
-#include "Config.h"
-#include "statistics_log.h"
+#include <time.h>
+#include "struct_shm.h"
 #include "Flights.h"
 
-typedef struct{
-    Statistic statistics;
-    config configuration;
-    time_t time_init;
-}Sta_log_time;
-typedef Sta_log_time* p_sta_log_time;
-
 int shmid_sta_log_time;
-Sta_log_time * shared_var_sta_log_time;
+Sta_log_time* shared_var_sta_log_time;
 sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
-
-
-
-
-
 
 
 void initialize_shm(){
@@ -35,20 +23,18 @@ void initialize_shm(){
     perror("error in shmget with Sta_log_time");
     exit(1);
   }
-  else
-    printf("hello" );
   // Attach shared memory Sta_log_time
   /*insert code here*/
   if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time  ,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
-  else
-    printf("world");
+  shared_var_sta_log_time->time_init=clock();
+  shared_var_sta_log_time->configuration=inicia("config.txt");
 }
 
 int main(){
-  config* p_config;
   initialize_shm();
-  p_config=inicia("config.txt");
+  printf("%d\n",(int)shared_var_sta_log_time->time_init );
+  printf("%d \n",shared_var_sta_log_time->configuration->ut);
 }

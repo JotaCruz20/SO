@@ -1,11 +1,8 @@
-prog:	main.o Config.o statistics_log.o
-			gcc -g -o prog main.o Config.o statistics_log.o
+prog:	main.o struct_shm.o
+			gcc -g -o prog main.o struct_shm.o
 
-Config.o:	Config.h Config.c
-			gcc -Wall -pthread -c -g Config.c
+struct_shm.o:	struct_shm.c struct_shm.h
+							gcc -Wall -pthread -c -g struct_shm.c
 
-statistics_log.o:	statistics_log.h statistics_log.c
-			gcc -Wall -pthread -c -g statistics_log.c
-
-main.o: main.c Config.h
+main.o: main.c struct_shm.h
 				gcc -Wall -pthread -c -g main.c

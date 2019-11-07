@@ -1,5 +1,14 @@
+#include <time.h>
+#include <stdlib.h>
 #include <stdio.h>
-typedef struct{
+
+typedef struct Config{
+  int ut,D,A,hld_min,hld_max;
+  double T,dt,L,dl;
+}config;
+typedef config* p_config;
+
+typedef struct statistic{
     int created_flights,landed_flights,take_of_flights;
 
     //average waiting times
@@ -16,6 +25,12 @@ typedef struct{
 typedef Statistic* p_sta;
 
 
+typedef struct Stat_Log{
+    Statistic* statistics;
+    config* configuration;
+    clock_t time_init;
+}Sta_log_time;
+
 //statistics functions
 void update_statistic();
 
@@ -23,3 +38,6 @@ void update_statistic();
 void new_command(FILE *f, char* command);
 char* current_time();
 int verify_command(char* command);
+
+//config functions
+config* inicia(char*);

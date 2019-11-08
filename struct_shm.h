@@ -35,7 +35,7 @@ typedef struct Stat_Log{
 void update_statistic();
 
 //log functions
-void new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time);
+int new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time);
 char* current_time();
 int verify_command(char* command,Sta_log_time* shared_var_sta_log_time);
 int verify_fuel(int fuel,int eta,int init);

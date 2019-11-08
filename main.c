@@ -30,7 +30,6 @@ void initialize_MSQ(){
     perror("Cannot create message queue");
     exit(0);
   }
-
 }
 
 
@@ -92,6 +91,7 @@ int main(){
   char message[80];
   initialize_shm();
   //printf("%d\n",(int)shared_var_sta_log_time->time_init );
+  initialize_MSQ();
   initialize_pipe();
   if(fork()==0){
     TorreControlo();

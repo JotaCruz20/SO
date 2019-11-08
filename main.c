@@ -37,34 +37,16 @@ void initialize_MSQ(){
 
 
 void initialize_pipe(){
-  printf("\nnaqui\n");
-  int nbits;
-  char message[80],keep_message[80];
-
+  unlink("named_pipe");
   if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) && (errno!= EEXIST)){//cria a pipe
     perror("Cannot create pipe: ");
     exit(0);
   }
-  printf("\nabrir o pipe\n");
   if ((fd_pipe=open(PIPE_NAME, O_RDWR|O_NONBLOCK)) < 0)// abre a pipe para read
   {
     perror("Cannot open pipe for reading: ");
     exit(0);
   }
-  printf("\nwhile\n");
-  while(1){
-      nbits = read(fd_pipe,message,sizeof(message));
-      if(nbits > 0){
-        //message[nbits+1]='\0';
-        strcpy(keep_message,message);
-        int test=verify_command(message,shared_var_sta_log_time);
-        printf("(BIG CUNT)\n");
-        printf("%s %d \n",keep_message,test);
-
-      }
-  }
-  printf("\ndepois do while\n");
-  close(fd_pipe);
 }
 
 void initialize_shm(){
@@ -105,15 +87,26 @@ void TorreControlo(){
 }
 
 int main(){
-
+  int nbits;
+  char message[80],keep_message[80];
   initialize_shm();
   //printf("%d\n",(int)shared_var_sta_log_time->time_init );
   initialize_MSQ();
-  printf("\nvai abrir o pipe\n");
   initialize_pipe();
   if(fork()==0){
     TorreControlo();
   }
+  do{
+      memset(keep_message,0,80);
+      memset(message,0,80);
+      nbits = read(fd_pipe,message,sizeof(message));
+      if(nbits > 0){
+        message[strlen(message)-1]='\0';
+        strcpy(keep_message,message);
+        int test=verify_command(message,shared_var_sta_log_time);
+        printf("%s %d \n",keep_message,test);
+      }
+  }while(strcmp(message,"close")!=0);
   terminate();
 
 }

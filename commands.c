@@ -33,9 +33,14 @@ void initialize_pipe(){
 }
 
 void main() {
+  FILE* f=fopen("commands.txt","r+")
+  initialize_pipe();
   char command[80];
   int nread;
-  fgets(command,80,stdin);
-  write(fd_)
+  while((nread=fgets(command,80,f)!=NULL){
+    command[nread-1]='\0';
+    write(fd,command,strlen(command));
+    sleep(3);
+  }
 
 }

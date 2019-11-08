@@ -22,7 +22,16 @@ int shmid_sta_log_time;
 Sta_log_time* shared_var_sta_log_time;
 sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 pid_t child;
-int fd;
+int fd,msqid;
+
+
+void initialize_MSQ(){
+  if(id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) == -1){
+    perror("Cannot create message queue");
+    exit(0);
+  }
+
+}
 
 
 void initialize_pipe(){

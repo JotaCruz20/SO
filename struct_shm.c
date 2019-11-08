@@ -6,7 +6,7 @@
 #define DEBUG 1//remove this line to remove debug messages
 
 
-//function das statistic
+//function das statistic********************************************************
 void update_statistic(p_sta statistic){
   statistic->average_wait_time_landing=statistic->sum_wait_time_landing/statistic->landed_flights;
   statistic->average_wait_time_taking_of=statistic->sum_wait_time_taking_of/statistic->take_of_flights;
@@ -14,7 +14,7 @@ void update_statistic(p_sta statistic){
   statistic->average_number_holds_urgency=statistic->sum_number_holds_urgency/statistic->total_holds_urgency;
 }
 
-//functions do log
+//functions do log*************************************************************
 char* current_time(){
   char stime[50];
   time_t rawtime;
@@ -77,7 +77,7 @@ int verify_command(char* command,Sta_log_time* shared_var_sta_log_time){
       token4=strtok(NULL," ");
       token5=strtok(NULL," ");
       if(strcmp(token,"init:")==0 && strcmp(token2,"eta:")==0 && strcmp(token4,"fuel:")==0){
-        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_log_time) && verify_fuel(atoi(token1),atoi(token3))){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_log_time) && verify_fuel(atoi(token5),atoi(token3),atoi(token1))){
           return 1;
         }
         else
@@ -117,7 +117,7 @@ int verify_command(char* command,Sta_log_time* shared_var_sta_log_time){
     return 0;
 }
 
-void new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
+void log_new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
   char* stime = current_time();
   char *keep_command;
   keep_command=(char*)malloc(sizeof(command));
@@ -132,8 +132,54 @@ void new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
 }
 
 
+void log_departure(char* flight,char* track,char state){
+  char* stime = current_time();
 
-//function do config
+  if(state=='s'){
+    printf("%s %s DEPARTURE %s started\n",stime,flight,track);
+    fprintf(f,"%s %s DEPARTURE => %s started\n",stime,flight,track);
+  }
+  else{
+    printf("%s %s DEPARTURE %s concluded\n",stime, flight, track);
+    fprintf(f,"%s %s DEPARTURE %s concluded\n",stime, flight, track);
+  }
+}
+
+void log_landing(char* flight,char* track,char state){
+  char* stime = current_time();
+
+  if(state=='s'){
+    printf("%s %s LANDING %s started\n",stime,flight,track);
+    fprintf(f,"%s %s LANDING => %s started\n",stime,flight,track);
+  }
+  else{
+    printf("%s %s LANDING %s concluded\n",stime, flight, track);
+    fprintf(f,"%s %s LANDING %s concluded\n",stime, flight, track);
+  }
+}
+
+void log_leaving(char* flight){
+  char* stime = current_time();
+
+  printf("%s %s LEAVING TO OTHER AIRPORT => FUEL = 0 \n",stime,flight);
+  fprintf(f,"%s %s LEAVING TO OTHER AIRPORT => FUEL = 0\n",stime,flight);
+}
+
+void log_emergency_landing(char* flight){
+  char* stime = current_time();
+
+  printf("%s %s  EMERGENCY LANDING REQUESTED\n",stime,flight);
+  fprintf(f,"%s %s EMERGENCY LANDING REQUESTED\n",stime,flight);
+}
+
+void log_holding(char* flight,int time_holding){
+  char* stime = current_time();
+
+  printf("%s %s  HOLDING %d\n",stime,flight,time_holding);
+  fprintf(f,"%s %s  HOLDING %d\n",stime,flight,time_holding);
+}
+
+//function do config**************************************************************************************
 config* inicia(char* path){//vai inicializar a strct do file
   char buffer[20];
   char* p_buffer;

@@ -41,6 +41,11 @@ int verify_command(char* command,Sta_log_time* shared_var_sta_log_time);
 int verify_fuel(int fuel,int eta,int init);
 int verify_init(int init,Sta_log_time* shared_var_sta_log_time);
 int verify_takeoff(int init,Sta_log_time* shared_var_sta_log_time);
+void log_departure(FILE *f,char* flight,char* track,char state);
+void log_landing(FILE *f,char* flight,char* track,char state);
+void log_leaving(FILE *f,char* flight);
+void log_emergency_landing(FILE *f,char* flight);
+void log_holding(FILE *f,char* flight,int time_holding);
 
 //config functions
 config* inicia(char*);

@@ -132,7 +132,7 @@ void log_new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_tim
 }
 
 
-void log_departure(char* flight,char* track,char state){
+void log_departure(FILE *f,char* flight,char* track,char state){
   char* stime = current_time();
 
   if(state=='s'){
@@ -145,7 +145,7 @@ void log_departure(char* flight,char* track,char state){
   }
 }
 
-void log_landing(char* flight,char* track,char state){
+void log_landing(FILE *f,char* flight,char* track,char state){
   char* stime = current_time();
 
   if(state=='s'){
@@ -158,21 +158,21 @@ void log_landing(char* flight,char* track,char state){
   }
 }
 
-void log_leaving(char* flight){
+void log_leaving(FILE *f,char* flight){
   char* stime = current_time();
 
   printf("%s %s LEAVING TO OTHER AIRPORT => FUEL = 0 \n",stime,flight);
   fprintf(f,"%s %s LEAVING TO OTHER AIRPORT => FUEL = 0\n",stime,flight);
 }
 
-void log_emergency_landing(char* flight){
+void log_emergency_landing(FILE *f,char* flight){
   char* stime = current_time();
 
   printf("%s %s  EMERGENCY LANDING REQUESTED\n",stime,flight);
   fprintf(f,"%s %s EMERGENCY LANDING REQUESTED\n",stime,flight);
 }
 
-void log_holding(char* flight,int time_holding){
+void log_holding(FILE *f,char* flight,int time_holding){
   char* stime = current_time();
 
   printf("%s %s  HOLDING %d\n",stime,flight,time_holding);

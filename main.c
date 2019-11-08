@@ -36,5 +36,4 @@ void initialize_shm(){
 int main(){
   initialize_shm();
   printf("%d\n",(int)shared_var_sta_log_time->time_init );
-  printf("%d \n",shared_var_sta_log_time->configuration->ut);
 }

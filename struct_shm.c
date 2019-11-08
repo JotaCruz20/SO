@@ -26,8 +26,39 @@ char* current_time(){
   return stime;
 }
 
+int verify_fuel(int fuel,int eta,int init){
+  if((eta-init)>fuel){
+    return 0;
+  }
+  else{
+    return 1;
+  }
+}
 
-int verify_command(char* command){
+int verify_init(int init,Sta_log_time* shared_var_sta_log_time){
+  time_t time_now=clock();
+  int time_passed=(time_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+  if(time_passed>init){
+    return 0;
+  }
+  else{
+    return 1;
+  }
+}
+
+int verify_takeoff(int takeoff,Sta_log_time* shared_var_sta_log_time){
+  time_t time_now=clock();
+  int time_passed=(time_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+  if(time_passed>takeoff){
+    return 0;
+  }
+  else{
+    return 1;
+  }
+}
+
+
+int verify_command(char* command,Sta_log_time* shared_var_sta_log_time){
   char *token,*token1,*token2,*token3,*token4,*token5;
   int i;
   token=strtok(command," ");
@@ -46,7 +77,7 @@ int verify_command(char* command){
       token4=strtok(NULL," ");
       token5=strtok(NULL," ");
       if(strcmp(token,"init:")==0 && strcmp(token2,"eta:")==0 && strcmp(token4,"fuel:")==0){
-        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3)){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_log_time) && verify_fuel(atoi(token1),atoi(token3))){
           return 1;
         }
         else
@@ -70,7 +101,7 @@ int verify_command(char* command){
       token2=strtok(NULL," ");
       token3=strtok(NULL," ");
       if(strcmp(token,"init:")==0 && strcmp(token2,"takeoff:")==0){
-        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && atoi(token1)<atoi(token3)){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_log_time) && verify_takeoff(atoi(token3),shared_var_sta_log_time)){
           return 1;
         }
         else
@@ -86,11 +117,11 @@ int verify_command(char* command){
     return 0;
 }
 
-void new_command(FILE *f, char* command){
+void new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
   char* stime = current_time();
   char *keep_command;
   keep_command=(char*)malloc(sizeof(command));
-  if(verify_command(keep_command)==0){
+  if(verify_command(keep_command, shared_var_sta_log_time)==0){
     printf("%s WRONG COMMAND => %s\n",stime,command);
     fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
   }

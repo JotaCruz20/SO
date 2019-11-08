@@ -26,6 +26,7 @@ int fd;
 
 
 void initialize_pipe(){
+  unlink(PIPE_NAME);
   if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST))//cria a pipe
   {
     perror("Cannot create pipe: ");
@@ -47,15 +48,18 @@ void initialize_shm(){
   }
   // Attach shared memory Sta_log_time
   /*insert code here*/
-  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time  ,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
+  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
   shared_var_sta_log_time->time_init=clock();
   shared_var_sta_log_time->configuration=inicia("config.txt");
 }
+void inicialize_message_q(){
 
-void terimate(){
+}
+
+void terminate(){
   close(fd);
   /*
   if()
@@ -75,19 +79,21 @@ void TorreControlo(){
 }
 
 int main(){
+  int nread;
   char message[80];
   initialize_shm();
   //printf("%d\n",(int)shared_var_sta_log_time->time_init );
   initialize_pipe();
-  if((child=fork())==0){
+  if(fork()==0){
     TorreControlo();
   }
   while(1){
-    read(fd,message,sizeof(message));
+    nread=read(fd,message,sizeof(message));
+    message[nread-1]='\0';
     int test=verify_command(message,shared_var_sta_log_time);
     printf("%s %d \n", message,test);
     pause();
   }
-  terimate();
+  terminate();
 
 }

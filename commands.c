@@ -16,15 +16,10 @@
 #include "Flights.h"
 #define PIPE_NAME  "named_pipe"
 
-void initialize_pipe(){
-  unlink(PIPE_NAME);
-  if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST))//cria a pipe
-  {
-    perror("Cannot create pipe: ");
-    exit(0);
-  }
+int fd_pipe;
 
-  if ((fd=open(PIPE_NAME, O_RDWR)) < 0)// abre a pipe para read
+void initialize_pipe(){
+  if ((fd_pipe=open(PIPE_NAME, O_RDWR)) < 0)// abre a pipe para read
   {
     perror("Cannot open pipe for reading: ");
     exit(0);
@@ -32,15 +27,15 @@ void initialize_pipe(){
 
 }
 
-void main() {
-  FILE* f=fopen("commands.txt","r+")
+int main() {
+  FILE* f=fopen("commands.txt","r");
   initialize_pipe();
   char command[80];
-  int nread;
-  while((nread=fgets(command,80,f)!=NULL){
-    command[nread-1]='\0';
-    write(fd,command,strlen(command));
+  while((fgets(command,80,f))!=NULL){
+    command[strlen(command)]='\0';
+    printf("A enviar command %s\n", command);
+    write(fd_pipe,command,strlen(command));
     sleep(3);
   }
-
+  close(fd_pipe);
 }

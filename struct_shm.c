@@ -119,9 +119,7 @@ int verify_command(char* command,Sta_log_time* shared_var_sta_log_time){
 
 void log_new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
   char* stime = current_time();
-  char *keep_command;
-  keep_command=(char*)malloc(sizeof(command));
-  if(verify_command(keep_command, shared_var_sta_log_time)==0){
+  if(verify_command(command, shared_var_sta_log_time)==0){
     printf("%s WRONG COMMAND => %s\n",stime,command);
     fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
   }

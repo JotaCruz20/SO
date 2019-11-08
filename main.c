@@ -12,6 +12,9 @@
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/msg.h>
+#include <signal.h>
+
 #include "struct_shm.h"
 #include "Flights.h"
 #define PIPE_NAME  "named_pipe"
@@ -22,11 +25,11 @@ int shmid_sta_log_time;
 Sta_log_time* shared_var_sta_log_time;
 sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
 pid_t child;
-int fd,msqid;
+int fd_pipe,msqid;
 
 
 void initialize_MSQ(){
-  if(id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) == -1){
+  if((msqid = msgget(IPC_PRIVATE, IPC_CREAT|0700)) == -1){
     perror("Cannot create message queue");
     exit(0);
   }
@@ -34,19 +37,34 @@ void initialize_MSQ(){
 
 
 void initialize_pipe(){
-  unlink(PIPE_NAME);
-  if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST))//cria a pipe
-  {
+  printf("\nnaqui\n");
+  int nbits;
+  char message[80],keep_message[80];
+
+  if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) && (errno!= EEXIST)){//cria a pipe
     perror("Cannot create pipe: ");
     exit(0);
   }
-
-  if ((fd=open(PIPE_NAME, O_RDWR)) < 0)// abre a pipe para read
+  printf("\nabrir o pipe\n");
+  if ((fd_pipe=open(PIPE_NAME, O_RDWR|O_NONBLOCK)) < 0)// abre a pipe para read
   {
     perror("Cannot open pipe for reading: ");
     exit(0);
   }
+  printf("\nwhile\n");
+  while(1){
+      nbits = read(fd_pipe,message,sizeof(message));
+      if(nbits > 0){
+        //message[nbits+1]='\0';
+        strcpy(keep_message,message);
+        int test=verify_command(message,shared_var_sta_log_time);
+        printf("(BIG CUNT)\n");
+        printf("%s %d \n",keep_message,test);
 
+      }
+  }
+  printf("\ndepois do while\n");
+  close(fd_pipe);
 }
 
 void initialize_shm(){
@@ -68,7 +86,7 @@ void inicialize_message_q(){
 }
 
 void terminate(){
-  close(fd);
+  close(fd_pipe);
   /*
   if()
   sem_unlink("MUTEX");
@@ -83,25 +101,18 @@ void terminate(){
 }
 
 void TorreControlo(){
-  printf("ola\n");
+  //printf("ola\n");
 }
 
 int main(){
-  int nread;
-  char message[80];
+
   initialize_shm();
   //printf("%d\n",(int)shared_var_sta_log_time->time_init );
   initialize_MSQ();
+  printf("\nvai abrir o pipe\n");
   initialize_pipe();
   if(fork()==0){
     TorreControlo();
-  }
-  while(1){
-    nread=read(fd,message,sizeof(message));
-    message[nread-1]='\0';
-    int test=verify_command(message,shared_var_sta_log_time);
-    printf("%s %d \n", message,test);
-    pause();
   }
   terminate();
 

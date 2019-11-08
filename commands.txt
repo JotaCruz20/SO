@@ -1,4 +1,4 @@
-DEPARTURE TP440 init: 0 takeoff: 100
+DEPARTURE TP440 init: 20 takeoff: 100
 ARRIVAL TP437 init: 0 eta: 100 fuel: 1000
 DEPARTURE TP89 init: 10 takeoff: 100
 DEPARTURE TP73 init: 10 takeoff: 100

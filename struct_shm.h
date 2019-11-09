@@ -24,7 +24,6 @@ typedef struct statistic{
 }Statistic;
 typedef Statistic* p_sta;
 
-
 typedef struct Stat_Log{
     Statistic* statistics;
     config* configuration;
@@ -41,6 +40,7 @@ typedef struct{
   int ETA;
   int fuel;
 }msq_chegada;
+
 
 //statistics functions
 void update_statistic();

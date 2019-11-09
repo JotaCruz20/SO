@@ -31,6 +31,17 @@ typedef struct Stat_Log{
     clock_t time_init;
 }Sta_log_time;
 
+typedef struct{
+  long msgtype;
+  int init;
+}msq_partida;
+
+typedef struct{
+  long msgtype;
+  int ETA;
+  int fuel;
+}msq_chegada;
+
 //statistics functions
 void update_statistic();
 

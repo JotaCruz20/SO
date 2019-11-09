@@ -89,6 +89,7 @@ void TorreControlo(){
 int main(){
   int nbits;
   char message[80],keep_message[80];
+  FILE* f_log=fopen("log.txt","w");
   initialize_shm();
   //printf("%d\n",(int)shared_var_sta_log_time->time_init );
   initialize_MSQ();
@@ -103,10 +104,10 @@ int main(){
       if(nbits > 0){
         message[strlen(message)-1]='\0';
         strcpy(keep_message,message);
-        int test=verify_command(message,shared_var_sta_log_time);
-        printf("%s %d \n",keep_message,test);
+        int test=new_command(f_log,message,shared_var_sta_log_time);
       }
   }while(strcmp(message,"close")!=0);
+  fclose(f_log);
   terminate();
 
 }

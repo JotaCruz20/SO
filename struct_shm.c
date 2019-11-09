@@ -16,10 +16,11 @@ void update_statistic(p_sta statistic){
 
 //functions do log*************************************************************
 char* current_time(){
-  char stime[50];
+  char* stime;
   time_t rawtime;
   struct tm * timeinfo;
 
+  stime=(char*)malloc(sizeof(char)*8);
   time ( &rawtime );
   timeinfo = localtime ( &rawtime );
   sprintf(stime,"%d:%d:%d",timeinfo->tm_hour,timeinfo->tm_min,timeinfo->tm_sec);
@@ -117,15 +118,19 @@ int verify_command(char* command,Sta_log_time* shared_var_sta_log_time){
     return 0;
 }
 
-void log_new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
+int new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
   char* stime = current_time();
+  char keep_command[80];
+  strcpy(keep_command,command);
   if(verify_command(command, shared_var_sta_log_time)==0){
-    printf("%s WRONG COMMAND => %s\n",stime,command);
-    fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
+    printf("%s WRONG COMMAND => %s\n",stime,keep_command);
+    fprintf(f,"%s WRONG COMMAND => %s\n",stime,keep_command);
+    return 0;
   }
   else{
-    printf("%s NEW COMMAND => %s\n",stime, command);
-    fprintf(f,"%s NEW COMMAND => %s\n",stime, command);
+    printf("%s NEW COMMAND => %s\n",stime, keep_command);
+    fprintf(f,"%s NEW COMMAND => %s\n",stime, keep_command);
+    return 1;
   }
 }
 

@@ -40,21 +40,32 @@ void initialize_MSQ(){
 }
 
 void* cria_threads_leaving(void* id_ptr){
-  int i;
-  sleep(30);
+  int i,time_passed;
+  time_t clock_now;
   while(1) {
     for(i=0;i<counterl;i++){
-      printf("%d leaving \n",i);
+      clock_now=clock();
+      time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+      if(time_passed>=array_leaving[i].init){
+        printf("Vai criar thread leaving %s %d %d \n",array_leaving[i].flight_code,array_leaving[i].init, time_passed );
+        sleep(20);
+      }
+
     }
   }
 }
 
 void* cria_threads_comming(void* id_ptr){
-  int j;
-  sleep(30);
+  int i,time_passed;
+  time_t clock_now;
   while(1) {
-    for(j=0;j<counterc;j++){
-      printf("%d comming \n",j);
+    for(i=0;i<counterc;i++){
+      clock_now=clock();
+      time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+      if(time_passed>=array_coming[i].init){
+        printf("Vai criar thread comming %s %d %d \n",array_coming[i].flight_code,array_coming[i].init, time_passed );
+        sleep(20);
+      }
     }
   }
 }
@@ -124,7 +135,7 @@ void TorreControlo(){
 }
 
 int main(){
-  int nbits,test_command,i;
+  int nbits,test_command,i=0;
   char message[80],keep_message[80];
   char* token;
   leaving_flight buffer_leaving_flight;
@@ -150,8 +161,9 @@ int main(){
         if(test_command==1){
           token=strtok(keep_message," ");
           if(strcmp(token,"DEPARTURE")==0){
-            token=strtok(keep_message," ");
-            for(i=0;(token=strtok(NULL," "));i++){
+            i=0;
+            while(token!=NULL){
+              token=strtok(NULL," ");
               if(i==0){
                 strcpy(buffer_leaving_flight.flight_code,token);
               }
@@ -161,13 +173,15 @@ int main(){
               else if(i==4){
                 buffer_leaving_flight.takeoff=atoi(token);
               }
+              i++;
             }
             array_leaving[counterl]=buffer_leaving_flight;
             counterl++;
           }
           else{
-            token=strtok(keep_message," ");
-            for(i=0;(token=strtok(NULL," "));i++){
+            i=0;
+            while(token!=NULL){
+              token=strtok(NULL," ");
               if(i==0){
                 strcpy(buffer_coming_flight.flight_code,token);
               }
@@ -180,6 +194,7 @@ int main(){
               else if(i==6){
                 buffer_coming_flight.fuel=atoi(token);
               }
+              i++;
             }
             array_coming[counterc]=buffer_coming_flight;
             counterc++;

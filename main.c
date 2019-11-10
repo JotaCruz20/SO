@@ -38,8 +38,24 @@ void initialize_MSQ(){
     exit(0);
   }
 }
+//****************************************GAY**********************************
+void adjust_array_leaving(leaving_flight* leaving_flights,int remove_pos){
+  int i;
+  for(i=remove_pos;i<counterl;i++){
+    leaving_flights[i]=leaving_flights[i+1];
+  }
+  counterl--;
+}
 
-void* cria_threads_leaving(void* id_ptr){
+void adjust_array_coming(coming_flight* coming_flights,int remove_pos){
+  int i;
+  for(i=remove_pos;i<counterc;i++){
+    coming_flights[i]=coming_flights[i+1];
+  }
+  counterc--;
+}
+//*****************************************************************************
+void* create_threads_leaving(void* id_ptr){
   int i,time_passed;
   time_t clock_now;
   while(1) {
@@ -48,14 +64,17 @@ void* cria_threads_leaving(void* id_ptr){
       time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
       if(time_passed>=array_leaving[i].init){
         printf("Vai criar thread leaving %s %d %d \n",array_leaving[i].flight_code,array_leaving[i].init, time_passed );
-        sleep(20);
+        adjust_array_leaving(array_leaving,i);
+        i--;
+        printf("counterl: %d\n",counterl);
+        sleep(2);
       }
 
     }
   }
 }
 
-void* cria_threads_comming(void* id_ptr){
+void* create_threads_coming(void* id_ptr){
   int i,time_passed;
   time_t clock_now;
   while(1) {
@@ -63,19 +82,22 @@ void* cria_threads_comming(void* id_ptr){
       clock_now=clock();
       time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
       if(time_passed>=array_coming[i].init){
-        printf("Vai criar thread comming %s %d %d \n",array_coming[i].flight_code,array_coming[i].init, time_passed );
-        sleep(20);
+        printf("Vai criar thread coming %s %d %d \n",array_coming[i].flight_code,array_coming[i].init, time_passed );
+        adjust_array_coming(array_coming,i);
+        i--;
+        printf("counterc: %d\n",counterc);
+        sleep(2);
       }
     }
   }
 }
 
-void initialize_thread_cria(){
-  if(pthread_create(&create_thread[0],NULL,cria_threads_leaving,NULL)!=0){
+void initialize_thread_create(){
+  if(pthread_create(&create_thread[0],NULL,create_threads_leaving,NULL)!=0){
     perror("error in pthread_create leaving!");
   }
-  if(pthread_create(&create_thread[1],NULL,cria_threads_comming,NULL)!=0){
-    perror("error in pthread_create comming!");
+  if(pthread_create(&create_thread[1],NULL,create_threads_coming,NULL)!=0){
+    perror("error in pthread_create coming!");
   }
 }
 
@@ -92,7 +114,6 @@ void initialize_pipe(){
     exit(0);
   }
 }
-
 
 void initialize_shm(){
   if((shmid_sta_log_time=shmget(IPC_PRIVATE,sizeof(Sta_log_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
@@ -129,7 +150,6 @@ void terminate(){
   exit(0);
 }
 
-
 void TorreControlo(){
   //printf("ola\n");
 }
@@ -146,7 +166,7 @@ int main(){
   initialize_MSQ();
   initialize_pipe();
   initialize_voos();
-  initialize_thread_cria();
+  initialize_thread_create();
   if(fork()==0){
     TorreControlo();
   }
@@ -204,5 +224,4 @@ int main(){
   }while(1);
   fclose(f_log);
   terminate();
-
 }

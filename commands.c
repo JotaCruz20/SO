@@ -35,7 +35,7 @@ int main() {
     command[strlen(command)]='\0';
     printf("A enviar command %s\n", command);
     write(fd_pipe,command,strlen(command));
-    sleep(3);
+    sleep(2);
   }
   close(fd_pipe);
 }

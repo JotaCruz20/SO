@@ -23,54 +23,70 @@
 
 
 
-int shmid_sta_log_time;
+int shmid_sta_log_time,counter_thread_comming=0,counter_thread_leaving=0;
 Sta_log_time* shared_var_sta_log_time;
-sem_t* arrival_flights,departureflights,mutex,mutex_pipe,queue;
+sem_t *arrival_flights,*departureflights,*mutex,*mutex_pipe,queue,*sem_counterl,*sem_counterc;
 pid_t child;
 pthread_t create_thread[2];
 int fd_pipe,msqid,counterc=0,counterl=0;
+FILE* f_log;
 coming_flight* array_coming;
 leaving_flight* array_leaving;
+pthread_t *thread_coming,*thread_leaving;
 
+//*****************************************************************************
 void initialize_MSQ(){
   if((msqid = msgget(IPC_PRIVATE, IPC_CREAT|0700)) == -1){
-    perror("Cannot create message queue");
+    perror("Cant create message queue");
     exit(0);
   }
 }
-//****************************************GAY**********************************
+//*****************************************************************************
 void adjust_array_leaving(leaving_flight* leaving_flights,int remove_pos){
   int i;
   for(i=remove_pos;i<counterl;i++){
     leaving_flights[i]=leaving_flights[i+1];
   }
   counterl--;
-}
 
+}
 void adjust_array_coming(coming_flight* coming_flights,int remove_pos){
   int i;
   for(i=remove_pos;i<counterc;i++){
     coming_flights[i]=coming_flights[i+1];
   }
   counterc--;
+
 }
-//*****************************************************************************
+
+void* flights_coming(void* id_ptr){
+  printf("CHEGUEI SEU GAY DA MERDA 1\n");
+}
+
+void* flights_leaving(void* id_ptr){
+    printf("CHEGUEI SEU GAY DA MERDA 2\n");
+}
+
+
 void* create_threads_leaving(void* id_ptr){
   int i,time_passed;
   time_t clock_now;
   while(1) {
+    sem_wait(sem_counterl);
     for(i=0;i<counterl;i++){
       clock_now=clock();
       time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
       if(time_passed>=array_leaving[i].init){
-        printf("Vai criar thread leaving %s %d %d \n",array_leaving[i].flight_code,array_leaving[i].init, time_passed );
+        printf("Vai criar leaving thread %s %d ",array_leaving[i].flight_code,array_leaving[i].init );
+        if(pthread_create(&thread_leaving[counter_thread_leaving],NULL,flights_leaving,NULL)!=0){
+          perror("error in pthread_create coming!");
+        }
+        counter_thread_leaving++;
         adjust_array_leaving(array_leaving,i);
         i--;
-        printf("counterl: %d\n",counterl);
-        sleep(2);
       }
-
     }
+    sem_post(sem_counterl);
   }
 }
 
@@ -78,17 +94,21 @@ void* create_threads_coming(void* id_ptr){
   int i,time_passed;
   time_t clock_now;
   while(1) {
+    sem_wait(sem_counterc);
     for(i=0;i<counterc;i++){
       clock_now=clock();
       time_passed=(clock_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
       if(time_passed>=array_coming[i].init){
-        printf("Vai criar thread coming %s %d %d \n",array_coming[i].flight_code,array_coming[i].init, time_passed );
+        printf("Vai criar coming thread %s %d ",array_coming[i].flight_code,array_coming[i].init );
+        if(pthread_create(&thread_coming[counter_thread_comming],NULL,flights_coming,NULL)!=0){
+          perror("error in pthread_create coming!");
+        }
+        counter_thread_comming++;
         adjust_array_coming(array_coming,i);
         i--;
-        printf("counterc: %d\n",counterc);
-        sleep(2);
       }
     }
+    sem_post(sem_counterc);
   }
 }
 
@@ -101,6 +121,13 @@ void initialize_thread_create(){
   }
 }
 
+void initialize_flights(){
+  array_coming=(coming_flight*)malloc(sizeof(coming_flight)*shared_var_sta_log_time->configuration->A);
+  array_leaving=(leaving_flight*)malloc(sizeof(leaving_flight)*shared_var_sta_log_time->configuration->D);
+  thread_coming=(pthread_t*)malloc(sizeof(pthread_t*)*shared_var_sta_log_time->configuration->A);
+  thread_leaving=(pthread_t*)malloc(sizeof(pthread_t*)*shared_var_sta_log_time->configuration->D);
+}
+//******************************************************************************
 
 void initialize_pipe(){
   unlink("named_pipe");
@@ -115,13 +142,22 @@ void initialize_pipe(){
   }
 }
 
+//******************************************************************************
+void initialize_semaphores(){
+  sem_unlink("SEM_COUNTERC");
+  sem_counterc=sem_open("SEM_COUNTERC",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("SEM_COUNTERL");
+  sem_counterl=sem_open("SEM_COUNTERL",O_CREAT|O_EXCL,0766,1);
+}
+
+//******************************************************************************
+
 void initialize_shm(){
   if((shmid_sta_log_time=shmget(IPC_PRIVATE,sizeof(Sta_log_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
     perror("error in shmget with Sta_log_time");
     exit(1);
   }
-  // Attach shared memory Sta_log_time
-  /*insert code here*/
+
   if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
     perror("error in shmat with Sta_log_time");
     exit(1);
@@ -129,14 +165,11 @@ void initialize_shm(){
   shared_var_sta_log_time->time_init=clock();
   shared_var_sta_log_time->configuration=inicia("config.txt");
 }
-
-void initialize_voos(){
-  array_coming=(coming_flight*)malloc(sizeof(coming_flight)*shared_var_sta_log_time->configuration->A);
-  array_leaving=(leaving_flight*)malloc(sizeof(leaving_flight)*shared_var_sta_log_time->configuration->D);
-}
+//******************************************************************************
 
 void terminate(){
   close(fd_pipe);
+  fclose(f_log);
   /*
   if()
   sem_unlink("MUTEX");
@@ -160,19 +193,19 @@ int main(){
   char* token;
   leaving_flight buffer_leaving_flight;
   coming_flight buffer_coming_flight;
-  FILE* f_log=fopen("log.txt","w");
-  initialize_shm();
-  //printf("%d\n",(int)shared_var_sta_log_time->time_init );
+  f_log=fopen("log.txt","w");
+  initialize_semaphores();
   initialize_MSQ();
   initialize_pipe();
-  initialize_voos();
+  initialize_shm();
+  initialize_flights();
   initialize_thread_create();
   if(fork()==0){
     TorreControlo();
   }
   do{
-      memset(keep_message,0,80);
       memset(message,0,80);
+      memset(keep_message,0,80);
       nbits = read(fd_pipe,message,sizeof(message));
       if(nbits > 0){
         message[strlen(message)-1]='\0';
@@ -195,8 +228,10 @@ int main(){
               }
               i++;
             }
+            sem_wait(sem_counterl);
             array_leaving[counterl]=buffer_leaving_flight;
             counterl++;
+            sem_post(sem_counterl);
           }
           else{
             i=0;
@@ -216,12 +251,13 @@ int main(){
               }
               i++;
             }
+            sem_wait(sem_counterc);
             array_coming[counterc]=buffer_coming_flight;
             counterc++;
+            sem_post(sem_counterc);
           }
         }
       }
   }while(1);
-  fclose(f_log);
   terminate();
 }

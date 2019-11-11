@@ -125,11 +125,13 @@ int new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time){
   if(verify_command(command, shared_var_sta_log_time)==0){
     printf("%s WRONG COMMAND => %s\n",stime,keep_command);
     fprintf(f,"%s WRONG COMMAND => %s\n",stime,keep_command);
+    fflush(f);
     return 0;
   }
   else{
     printf("%s NEW COMMAND => %s\n",stime, keep_command);
     fprintf(f,"%s NEW COMMAND => %s\n",stime, keep_command);
+    fflush(f);
     return 1;
   }
 }
@@ -141,10 +143,12 @@ void log_departure(FILE *f,char* flight,char* track,char state){
   if(state=='s'){
     printf("%s %s DEPARTURE %s started\n",stime,flight,track);
     fprintf(f,"%s %s DEPARTURE => %s started\n",stime,flight,track);
+    fflush(f);
   }
   else{
     printf("%s %s DEPARTURE %s concluded\n",stime, flight, track);
     fprintf(f,"%s %s DEPARTURE %s concluded\n",stime, flight, track);
+    fflush(f);
   }
 }
 
@@ -154,10 +158,12 @@ void log_landing(FILE *f,char* flight,char* track,char state){
   if(state=='s'){
     printf("%s %s LANDING %s started\n",stime,flight,track);
     fprintf(f,"%s %s LANDING => %s started\n",stime,flight,track);
+    fflush(f);
   }
   else{
     printf("%s %s LANDING %s concluded\n",stime, flight, track);
     fprintf(f,"%s %s LANDING %s concluded\n",stime, flight, track);
+    fflush(f);
   }
 }
 
@@ -166,6 +172,7 @@ void log_leaving(FILE *f,char* flight){
 
   printf("%s %s LEAVING TO OTHER AIRPORT => FUEL = 0 \n",stime,flight);
   fprintf(f,"%s %s LEAVING TO OTHER AIRPORT => FUEL = 0\n",stime,flight);
+  fflush(f);
 }
 
 void log_emergency_landing(FILE *f,char* flight){
@@ -173,6 +180,7 @@ void log_emergency_landing(FILE *f,char* flight){
 
   printf("%s %s  EMERGENCY LANDING REQUESTED\n",stime,flight);
   fprintf(f,"%s %s EMERGENCY LANDING REQUESTED\n",stime,flight);
+  fflush(f);
 }
 
 void log_holding(FILE *f,char* flight,int time_holding){
@@ -180,6 +188,7 @@ void log_holding(FILE *f,char* flight,int time_holding){
 
   printf("%s %s  HOLDING %d\n",stime,flight,time_holding);
   fprintf(f,"%s %s  HOLDING %d\n",stime,flight,time_holding);
+  fflush(f);
 }
 
 //function do config**************************************************************************************

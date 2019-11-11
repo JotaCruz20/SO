@@ -19,7 +19,7 @@
 int fd_pipe;
 
 void initialize_pipe(){
-  if ((fd_pipe=open(PIPE_NAME, O_RDWR)) < 0)// abre a pipe para read
+  if ((fd_pipe=open(PIPE_NAME, O_RDWR|O_NONBLOCK)) < 0)// abre a pipe para read
   {
     perror("Cannot open pipe for reading: ");
     exit(0);

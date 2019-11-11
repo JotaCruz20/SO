@@ -55,7 +55,7 @@ void* thread_creates_threads(void* id){
   int i,time_passed;
   time_t time_now;
   while (1) {
-    sem_wait(sem_counterl);
+    sem_wait(sem_counterc);
     time_now=time(NULL);
     time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
     for(i=0;i<p_flights->counter_coming;i++){
@@ -66,10 +66,10 @@ void* thread_creates_threads(void* id){
         counter_threads_coming++;
       }
     }
-    sem_post(sem_counterl);
+    sem_post(sem_counterc);
+    sem_wait(sem_counterl);
     time_now=time(NULL);
     time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
-    sem_wait(sem_counterc);
     for(i=0;i<p_flights->counter_leaving;i++){
       if(time_passed>=array_leaving[i].init && array_leaving[i].selected==0){
         printf("%s %d l\n",array_leaving[i].flight_code,time_passed);
@@ -78,7 +78,7 @@ void* thread_creates_threads(void* id){
         counter_threads_leaving++;
       }
     }
-    sem_post(sem_counterc);
+    sem_post(sem_counterl);
   }
 }
 
@@ -192,52 +192,46 @@ int main(){
         if(test_command==1){
           token=strtok(keep_message," ");
           if(strcmp(token,"DEPARTURE")==0){
-            leaving_flight buffer_leaving_flight;
-            //memset(buffer_leaving_flight.flight_code,0,sizeof(buffer_leaving_flight.flight_code));
+            sem_wait(sem_counterl);
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(buffer_leaving_flight.flight_code,token);
+                strcpy(array_leaving[p_flights->counter_leaving].flight_code,token);
               }
               else if(i==2){
-                buffer_leaving_flight.init=atoi(token);
+                array_leaving[p_flights->counter_leaving].init=atoi(token);
               }
               else if(i==4){
-                buffer_leaving_flight.takeoff=atoi(token);
+                array_leaving[p_flights->counter_leaving].takeoff=atoi(token);
               }
               i++;
             }
-            buffer_leaving_flight.selected=0;
-            array_leaving[p_flights->counter_leaving]=buffer_leaving_flight;
-            sem_wait(sem_counterl);
-            p_flights->counter_leaving=p_flights->counter_leaving+1;
+            array_leaving[p_flights->counter_leaving].selected=0;
+            p_flights->counter_leaving++;
             sem_post(sem_counterl);
           }
           else{
-            //memset(buffer_coming_flight.flight_code,0,sizeof(buffer_coming_flight));
-            coming_flight buffer_coming_flight;
+            sem_wait(sem_counterc);
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(buffer_coming_flight.flight_code,token);
+                strcpy(array_coming[p_flights->counter_coming].flight_code,token);
               }
               else if(i==2){
-                buffer_coming_flight.init=atoi(token);
+              array_coming[p_flights->counter_coming].init=atoi(token);
               }
               else if(i==4){
-                buffer_coming_flight.ETA=atoi(token);
+                array_coming[p_flights->counter_coming].ETA=atoi(token);
               }
               else if(i==6){
-                buffer_coming_flight.fuel=atoi(token);
+                array_coming[p_flights->counter_coming].fuel=atoi(token);
               }
               i++;
             }
-            buffer_coming_flight.selected=0;
-            array_coming[p_flights->counter_coming]=buffer_coming_flight;
-            sem_wait(sem_counterc);
-            p_flights->counter_coming=p_flights->counter_coming+1;
+            array_coming[p_flights->counter_coming].selected=0;
+            p_flights->counter_coming++;
             sem_post(sem_counterc);
           }
         }

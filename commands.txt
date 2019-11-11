@@ -5,4 +5,3 @@ DEPARTURE TP4 init: 20 takeoff: 1000
 ARRIVAL TP5 init: 20 eta: 1000 fuel: 10000
 DEPARTURE TP6 init: 30 takeoff: 1000
 DEPARTURE TP7 init: 35 takeoff: 1500
-print

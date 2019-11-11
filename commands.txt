@@ -1,6 +1,8 @@
-DEPARTURE TP440 init: 20 takeoff: 100
-ARRIVAL TP437 init: 0 eta: 100 fuel: 1000
-DEPARTURE TP89 init: 10 takeoff: 100
-DEPARTURE TP73 init: 10 takeoff: 100
-ARRIVAL TP88 init: 10 eta: 200 fuel: 1500
-ARRIVAL TP70 init: 30 eta: 100 fuel: 1500
+DEPARTURE TP1 init: 0 takeoff: 100
+ARRIVAL TP2 init: 10 eta: 200 fuel: 1500
+ARRIVAL TP3 init: 15 eta: 100 fuel: 1500
+DEPARTURE TP4 init: 20 takeoff: 1000
+ARRIVAL TP5 init: 20 eta: 1000 fuel: 10000
+DEPARTURE TP6 init: 30 takeoff: 1000
+DEPARTURE TP7 init: 35 takeoff: 1500
+print

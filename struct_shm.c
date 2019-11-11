@@ -37,8 +37,8 @@ int verify_fuel(int fuel,int eta,int init){
 }
 
 int verify_init(int init,Sta_log_time* shared_var_sta_log_time){
-  time_t time_now=clock();
-  int time_passed=(time_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+  time_t time_now=time(NULL);
+  int time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
   if(time_passed>init){
     return 0;
   }
@@ -48,8 +48,8 @@ int verify_init(int init,Sta_log_time* shared_var_sta_log_time){
 }
 
 int verify_takeoff(int takeoff,Sta_log_time* shared_var_sta_log_time){
-  time_t time_now=clock();
-  int time_passed=(time_now-shared_var_sta_log_time->time_init)/shared_var_sta_log_time->configuration->ut;
+  time_t time_now=time(NULL);
+  int time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
   if(time_passed>takeoff){
     return 0;
   }

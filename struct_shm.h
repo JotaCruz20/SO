@@ -27,7 +27,7 @@ typedef Statistic* p_sta;
 typedef struct Stat_Log{
     Statistic* statistics;
     config* configuration;
-    clock_t time_init;
+    time_t time_init;
 }Sta_log_time;
 
 typedef struct{

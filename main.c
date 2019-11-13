@@ -19,13 +19,12 @@
 #include "struct_shm.h"
 #include "Flights.h"
 #define PIPE_NAME  "named_pipe"
-#define DEBUG 1
+#define DEBUG 0
 
 
 
-int shmid_sta_log_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid;
+int shmid_sta_log_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid,counter_coming=0,counter_leaving=0;
 Sta_log_time* shared_var_sta_log_time;
-flights_counter* p_flights;
 coming_flight* array_coming;
 leaving_flight* array_leaving;
 sem_t *sem_counterl,*sem_counterc;
@@ -58,7 +57,7 @@ void* thread_creates_threads(void* id){
     sem_wait(sem_counterc);
     time_now=time(NULL);
     time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
-    for(i=0;i<p_flights->counter_coming;i++){
+    for(i=0;i<counter_coming;i++){
       if(time_passed>=array_coming[i].init && array_coming[i].selected==0){
         printf("%s %d c\n",array_coming[i].flight_code,time_passed);
         array_coming[i].selected=1;
@@ -70,7 +69,7 @@ void* thread_creates_threads(void* id){
     sem_wait(sem_counterl);
     time_now=time(NULL);
     time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
-    for(i=0;i<p_flights->counter_leaving;i++){
+    for(i=0;i<counter_leaving;i++){
       if(time_passed>=array_leaving[i].init && array_leaving[i].selected==0){
         printf("%s %d l\n",array_leaving[i].flight_code,time_passed);
         array_leaving[i].selected=1;
@@ -132,18 +131,6 @@ void initialize_shm(){
   }
   shared_var_sta_log_time->time_init=time(NULL);
   shared_var_sta_log_time->configuration=inicia("config.txt");
-
-  if((shmid_flights=shmget(IPC_PRIVATE,sizeof(flights_counter*),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
-    perror("error in shmget with Sta_log_time");
-    exit(1);
-  }
-
-  if((p_flights=(flights_counter*) shmat(shmid_flights,NULL,0))==(flights_counter*)-1){  //atribui um bloco de memória ao ponteiro shared_var
-    perror("error in shmat with Sta_log_time");
-    exit(1);
-  }
-  p_flights->counter_coming=0;
-  p_flights->counter_leaving=0;
 }
 //******************************************************************************
 
@@ -180,6 +167,7 @@ int main(){
   initialize_thread_create();
   if(fork()==0){
     TorreControlo();
+    exit(0);
   }
   do{
       memset(message,0,80);
@@ -197,18 +185,19 @@ int main(){
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(array_leaving[p_flights->counter_leaving].flight_code,token);
+                strcpy(array_leaving[counter_leaving].flight_code,token);
               }
               else if(i==2){
-                array_leaving[p_flights->counter_leaving].init=atoi(token);
+                array_leaving[counter_leaving].init=atoi(token);
               }
               else if(i==4){
-                array_leaving[p_flights->counter_leaving].takeoff=atoi(token);
+                array_leaving[counter_leaving].takeoff=atoi(token);
               }
               i++;
             }
-            array_leaving[p_flights->counter_leaving].selected=0;
-            p_flights->counter_leaving++;
+            array_leaving[counter_leaving].selected=0;
+            counter_leaving++;
+            printf("%d l\n",counter_leaving );
             sem_post(sem_counterl);
           }
           else{
@@ -217,21 +206,22 @@ int main(){
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(array_coming[p_flights->counter_coming].flight_code,token);
+                strcpy(array_coming[counter_coming].flight_code,token);
               }
               else if(i==2){
-              array_coming[p_flights->counter_coming].init=atoi(token);
+              array_coming[counter_coming].init=atoi(token);
               }
               else if(i==4){
-                array_coming[p_flights->counter_coming].ETA=atoi(token);
+                array_coming[counter_coming].ETA=atoi(token);
               }
               else if(i==6){
-                array_coming[p_flights->counter_coming].fuel=atoi(token);
+                array_coming[counter_coming].fuel=atoi(token);
               }
               i++;
             }
-            array_coming[p_flights->counter_coming].selected=0;
-            p_flights->counter_coming++;
+            array_coming[counter_coming].selected=0;
+            counter_coming++;
+            printf("aa%d c\n", counter_coming );
             sem_post(sem_counterc);
           }
         }

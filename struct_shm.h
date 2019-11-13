@@ -29,23 +29,18 @@ typedef struct Stat_Log{
     config* configuration;
     time_t time_init;
 }Sta_log_time;
-
+//message queue structs*********************************************************
 typedef struct{
   long msgtype;
-  int init;
-}msq_partida;
-
-typedef struct{
-  long msgtype;
+  int takeoff;
   int ETA;
   int fuel;
-}msq_chegada;
+}msq_flights;
 
-
-//statistics functions
+//statistics functions**********************************************************
 void update_statistic();
 
-//log functions
+//log functions*****************************************************************
 int new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time);
 char* current_time();
 int verify_command(char* command,Sta_log_time* shared_var_sta_log_time);

@@ -37,6 +37,11 @@ typedef struct{
   int fuel;
 }msq_flights;
 
+typedef struct{
+  long msgtype;
+  int slot;
+}slot_number;
+
 //statistics functions**********************************************************
 void update_statistic();
 

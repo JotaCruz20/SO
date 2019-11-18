@@ -20,8 +20,8 @@
 #include "Flights.h"
 #define PIPE_NAME  "named_pipe"
 #define DEBUG 0
-#define SLOT 1
-#define FLIGHTS 0
+#define SLOT 2
+#define FLIGHTS 1
 
 
 
@@ -62,9 +62,10 @@ void* cthreads_leaving(void* flight){
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
   sem_wait(sem_msq);
-  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight),0);
-  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot),SLOT,0);
-  sem_wait(sem_msq);
+  printf("cheguei\n");
+  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight) - sizeof(long),0);
+  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),SLOT,0);
+  sem_post(sem_msq);
   printf("Recebi slot numero %d\n", msq_slot.slot);
 }
 
@@ -83,9 +84,12 @@ void* cthreads_coming(void* flight){//acabar log e msq
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
   sem_wait(sem_msq);
-  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight),0);
+  printf("cheguei\n");
+  if(msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0) == -1){
+    printf("erro\n");
+  }
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot),SLOT,0);
-  sem_wait(sem_msq);
+  sem_post(sem_msq);
   printf("Recebi slot numero %d\n", msq_slot.slot);
 }
 
@@ -195,11 +199,11 @@ void TorreControlo(){
   slot_number msq_slot;
   int count=0;
   while(1){
-      msgrcv(msqid_flights,&msq,sizeof(msq),FLIGHTS,0);
+      msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
       printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq_slot.msgtype=SLOT;
       msq_slot.slot=count;
-      msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot),1);
+      msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),0);
       count++;
   }
 }

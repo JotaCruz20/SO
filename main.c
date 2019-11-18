@@ -23,8 +23,9 @@
 
 
 
-int shmid_sta_log_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid;
-Sta_log_time* shared_var_sta_log_time;
+
+int shmid_sta_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid;
+Sta_time* shared_var_sta_time;
 pid_t child;
 sem_t *sem_log;
 pthread_t create_thread;
@@ -32,6 +33,7 @@ pthread_t *threads_coming,*threads_leaving;
 FILE* f_log;
 p_coming_flight coming_flights;
 p_leaving_flight leaving_flights;
+p_config configuration;
 
 //*****************************************************************************
 void initialize_MSQ(){
@@ -85,7 +87,7 @@ void* thread_creates_threads(void* id){
   leaving_flight l_flight;
   while (1) {
     time_now=time(NULL);
-    time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
+    time_passed=((time_now-shared_var_sta_time->time_init)*1000)/configuration->ut;
     if(coming_flights->next!=NULL && time_passed>=coming_flights->next->init){
       sem_wait(sem_log);
       c_flight.ETA=coming_flights->next->ETA;
@@ -97,7 +99,7 @@ void* thread_creates_threads(void* id){
       counter_threads_coming++;
     }
     time_now=time(NULL);
-    time_passed=((time_now-shared_var_sta_log_time->time_init)*1000)/shared_var_sta_log_time->configuration->ut;
+    time_passed=((time_now-shared_var_sta_time->time_init)*1000)/configuration->ut;
     if(leaving_flights->next!=NULL && time_passed>=leaving_flights->next->init){
       sem_wait(sem_log);
       l_flight.takeoff=leaving_flights->next->takeoff;
@@ -120,8 +122,8 @@ void initialize_thread_create(){
 void initialize_flights(){
   coming_flights=create_list_coming_flight();
   leaving_flights=create_list_leaving_flight();
-  threads_coming=(pthread_t*)malloc(sizeof(pthread_t*)*shared_var_sta_log_time->configuration->A);
-  threads_leaving=(pthread_t*)malloc(sizeof(pthread_t*)*shared_var_sta_log_time->configuration->D);
+  threads_coming=(pthread_t*)malloc(sizeof(pthread_t*)*configuration->A);
+  threads_leaving=(pthread_t*)malloc(sizeof(pthread_t*)*configuration->D);
 }
 //******************************************************************************
 
@@ -147,17 +149,16 @@ void initialize_semaphores(){
 //******************************************************************************
 
 void initialize_shm(){
-  if((shmid_sta_log_time=shmget(IPC_PRIVATE,sizeof(Sta_log_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
-    perror("error in shmget with Sta_log_time");
+  if((shmid_sta_time=shmget(IPC_PRIVATE,sizeof(Sta_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
+    perror("error in shmget with Sta_time");
     exit(1);
   }
 
-  if((shared_var_sta_log_time=(Sta_log_time*) shmat(shmid_sta_log_time,NULL,0))==(Sta_log_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
-    perror("error in shmat with Sta_log_time");
+  if((shared_var_sta_time=(Sta_time*) shmat(shmid_sta_time,NULL,0))==(Sta_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
+    perror("error in shmat with Sta_time");
     exit(1);
   }
-  shared_var_sta_log_time->time_init=time(NULL);
-  shared_var_sta_log_time->configuration=inicia("config.txt");
+  shared_var_sta_time->time_init=time(NULL);
 }
 //******************************************************************************
 
@@ -171,8 +172,8 @@ void terminate(){
   sem_unlink("STOP_WRITERS");
   sem_close(stop_writers);
   *///fechar semaphore
-  if (shmid_sta_log_time >= 0){ // remove shared memory
-    shmctl(shmid_sta_log_time, IPC_RMID, NULL);
+  if (shmid_sta_time >= 0){ // remove shared memory
+    shmctl(shmid_sta_time, IPC_RMID, NULL);
   }
   exit(0);
 }
@@ -195,6 +196,7 @@ int main(){
   char message[80],keep_message[80],code[10];
   char* token;
   f_log=fopen("log.txt","w");
+  configuration=inicia("config.txt");
   initialize_semaphores();
   initialize_MSQ();
   initialize_pipe();
@@ -213,7 +215,7 @@ int main(){
         message[strlen(message)-1]='\0';
         strcpy(keep_message,message);
         sem_wait(sem_log);
-        test_command=new_command(f_log,message,shared_var_sta_log_time);
+        test_command=new_command(f_log,message,shared_var_sta_time,configuration);
         sem_post(sem_log);
         if(test_command==1){
           token=strtok(keep_message," ");

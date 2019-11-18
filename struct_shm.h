@@ -24,11 +24,10 @@ typedef struct statistic{
 }Statistic;
 typedef Statistic* p_sta;
 
-typedef struct Stat_Log{
+typedef struct{
     Statistic* statistics;
-    config* configuration;
     time_t time_init;
-}Sta_log_time;
+}Sta_time;
 //message queue structs*********************************************************
 typedef struct{
   long msgtype;
@@ -46,12 +45,12 @@ typedef struct{
 void update_statistic();
 
 //log functions*****************************************************************
-int new_command(FILE *f, char* command,Sta_log_time* shared_var_sta_log_time);
+int new_command(FILE *f, char* command,Sta_time* shared_var_sta_time,p_config configuration);
 char* current_time();
-int verify_command(char* command,Sta_log_time* shared_var_sta_log_time);
+int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configuration);
 int verify_fuel(int fuel,int eta,int init);
-int verify_init(int init,Sta_log_time* shared_var_sta_log_time);
-int verify_takeoff(int init,Sta_log_time* shared_var_sta_log_time);
+int verify_init(int init,Sta_time* shared_var_sta_time,p_config configuration);
+int verify_takeoff(int init,Sta_time* shared_var_sta_time,p_config configuration);
 void log_departure(FILE *f,char* flight,char* track,char state);
 void log_landing(FILE *f,char* flight,char* track,char state);
 void log_leaving(FILE *f,char* flight);
@@ -59,4 +58,4 @@ void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 
 //config functions
-config* inicia(char*);
+p_config inicia(char*);

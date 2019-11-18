@@ -36,7 +36,8 @@ FILE* f_log;
 p_coming_flight coming_flights;
 p_leaving_flight leaving_flights;
 
-//*****************************************************************************
+//*********************************MSQ******************************************
+
 void initialize_MSQ(){
   if((msqid_flights = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
     perror("Cant create message queue");
@@ -47,7 +48,43 @@ void initialize_MSQ(){
     exit(0);
   }
 }
-//*****************************************************************************
+
+//******************************SIGNALS*****************************************
+
+void terminate(){
+  char message[80];
+  int i;
+  read(fd_pipe,message,sizeof(message));
+  close(fd_pipe);
+
+
+  fclose(f_log);
+  sem_close(sem_log);
+  sem_close(sem_msq);
+  sem_unlink("LOG");
+  sem_unlink("MSQ");
+  if (shmid_stat_time >= 0){ // remove shared memory
+    shmctl(shmid_stat_time, IPC_RMID, NULL);
+  }
+  kill(0, SIGTERM);
+  for(i=0;i<counter_threads_coming;i++){
+    pthread_join(threads_coming[i],NULL);
+	}
+  for(i=0;i<counter_threads_leaving;i++){
+    pthread_join(threads_leaving[i],NULL);
+	}
+
+  exit(0);
+}
+
+void initialize_signals(){
+  signal(SIGINT,terminate);
+  signal(SIGHUP,terminate);
+  signal(SIGQUIT,terminate);
+  signal(SIGTERM,terminate);
+}
+
+//*******************************THREADS****************************************
 
 void* cthreads_leaving(void* flight){
   leaving_flight my_flight=*((leaving_flight*)flight);
@@ -62,7 +99,6 @@ void* cthreads_leaving(void* flight){
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
   sem_wait(sem_msq);
-  printf("cheguei\n");
   msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight) - sizeof(long),0);
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),SLOT,0);
   sem_post(sem_msq);
@@ -84,10 +120,7 @@ void* cthreads_coming(void* flight){//acabar log e msq
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
   sem_wait(sem_msq);
-  printf("cheguei\n");
-  if(msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0) == -1){
-    printf("erro\n");
-  }
+  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0);
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot),SLOT,0);
   sem_post(sem_msq);
   printf("Recebi slot numero %d\n", msq_slot.slot);
@@ -125,7 +158,6 @@ void* thread_creates_threads(void* id){
   }
 }
 
-
 void initialize_thread_create(){
   if(pthread_create(&create_thread,NULL,thread_creates_threads,NULL)!=0){
     perror("error in pthread_create coming!");
@@ -138,7 +170,8 @@ void initialize_flights(){
   threads_coming=(pthread_t*)malloc(sizeof(pthread_t*)*configurations->A);
   threads_leaving=(pthread_t*)malloc(sizeof(pthread_t*)*configurations->D);
 }
-//******************************************************************************
+
+//*********************************PIPE*****************************************
 
 void initialize_pipe(){
   unlink("named_pipe");
@@ -153,7 +186,8 @@ void initialize_pipe(){
   }
 }
 
-//******************************************************************************
+//********************************SEMAPHORES************************************
+
 void initialize_semaphores(){
   sem_unlink("LOG");
   sem_log=sem_open("LOG",O_CREAT|O_EXCL,0766,1);
@@ -161,7 +195,7 @@ void initialize_semaphores(){
   sem_msq=sem_open("MSQ",O_CREAT|O_EXCL,0766,1);
 }
 
-//******************************************************************************
+//******************************SHARED MEMORY***********************************
 
 void initialize_shm(){
   if((shmid_stat_time=shmget(IPC_PRIVATE,sizeof(Sta_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
@@ -176,28 +210,17 @@ void initialize_shm(){
   shared_var_stat_time->time_init=time(NULL);
   configurations=inicia("config.txt");
 }
-//******************************************************************************
 
-void terminate(){
-  close(fd_pipe);
-  fclose(f_log);
-  /*
-  if()
-  sem_unlink("MUTEX");
-  sem_close(mutex);
-  sem_unlink("STOP_WRITERS");
-  sem_close(stop_writers);
-  *///fechar semaphore
-  if (shmid_stat_time >= 0){ // remove shared memory
-    shmctl(shmid_stat_time, IPC_RMID, NULL);
-  }
-  exit(0);
-}
+//**********************************TC******************************************
 
 void TorreControlo(){
+  char* stime = current_time();
   msq_flights msq;
   slot_number msq_slot;
   int count=0;
+  printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
+  fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
+  fflush(f_log);
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
       printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
@@ -207,13 +230,16 @@ void TorreControlo(){
       count++;
   }
 }
-//*****************************************************************************
+
+//**********************************MAIN****************************************
+
 int main(){
-  int nbits,test_command,i=0,ETA,fuel,init,takeoff;
-  char message[80],keep_message[80],code[10];
-  char* token;
+  int nbits,test_command,i=0,ETA,fuel,init,takeoff,counter=0;
+  char message[7000],code[70],keep_code[70],f_code[10];
+  char *token;
   f_log=fopen("log.txt","w");
   initialize_semaphores();
+  initialize_signals();
   initialize_MSQ();
   initialize_pipe();
   initialize_shm();
@@ -223,24 +249,30 @@ int main(){
     TorreControlo();
     exit(0);
   }
-  do{
-      memset(message,0,80);
-      memset(keep_message,0,80);
-      nbits = read(fd_pipe,message,sizeof(message));
-      if(nbits > 0){
-        message[strlen(message)-1]='\0';
-        strcpy(keep_message,message);
+  while(1){
+    nbits = read(fd_pipe,message,sizeof(message));
+    if(nbits > 0){
+      while(message[counter]!='\0'){
+        memset(code,0,70);
+        memset(keep_code,0,80);
+        memset(f_code,0,80);
+        for(i=0;message[counter]!='\n';i++){
+          code[i]=message[counter];
+          counter++;
+        }
+        counter++;
+        strcpy(keep_code,code);
         sem_wait(sem_log);
-        test_command=new_command(f_log,message,shared_var_stat_time,configurations);
+        test_command=new_command(f_log,code,shared_var_stat_time,configurations);
         sem_post(sem_log);
         if(test_command==1){
-          token=strtok(keep_message," ");
+          token=strtok(keep_code," ");
           if(strcmp(token,"DEPARTURE")==0){
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(code,token);
+                strcpy(f_code,token);
               }
               else if(i==2){
                 init=atoi(token);
@@ -250,14 +282,14 @@ int main(){
               }
               i++;
             }
-            add_leaving_flight(leaving_flights,code,init,takeoff);
+          add_leaving_flight(leaving_flights,f_code,init,takeoff);
           }
           else{
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
               if(i==0){
-                strcpy(code,token);
+                strcpy(f_code,token);
               }
               else if(i==2){
                 init=atoi(token);
@@ -270,13 +302,11 @@ int main(){
               }
               i++;
             }
-            add_coming_flight(coming_flights,code,init,ETA,fuel);
+            add_coming_flight(coming_flights,f_code,init,ETA,fuel);
           }
         }
-        memset(code,0,10);
-        memset(message,0,80);
-        memset(keep_message,0,80);
       }
-  }while(1);
+    }
+  }
   terminate();
 }

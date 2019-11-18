@@ -12,8 +12,9 @@
 #include <time.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "struct_shm.h"
-#include "Flights.h"
+#include <sys/msg.h>
+#include <signal.h>
+#include <pthread.h>
 #define PIPE_NAME  "named_pipe"
 
 int fd_pipe;
@@ -28,14 +29,17 @@ void initialize_pipe(){
 }
 
 int main() {
+  char* buffer;
+  long numbytes;
   FILE* f=fopen("commands.txt","r");
   initialize_pipe();
-  char command[80];
-  while((fgets(command,80,f))!=NULL){
-    command[strlen(command)]='\0';
-    printf("A enviar command %s\n", command);
-    write(fd_pipe,command,strlen(command));
-    sleep(2);
-  }
+  fseek(f, 0, SEEK_END);
+  numbytes = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  buffer = (char*)calloc(numbytes,sizeof(char));
+  fread(buffer, sizeof(char), numbytes, f);
+  printf("%s", buffer);
+  write(fd_pipe,buffer,strlen(buffer));
+  fclose(f);
   close(fd_pipe);
 }

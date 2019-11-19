@@ -22,14 +22,17 @@
 #define SLOT 2
 #define FLIGHTS 1
 
-int shmid_stat_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid_flights,msqid_slot;
-Sta_time* shared_var_stat_time;
-p_config configurations;
-pid_t child;
-sem_t *sem_log,*sem_msq;
-pthread_t create_thread;
-pthread_t *threads_coming,*threads_leaving;
+int shmid_stat_time,shmid_flights;//shared memory ids
+int counter_threads_leaving=0,counter_threads_coming=0;//counters
+int fd_pipe;//pipe id
+int msqid_flights,msqid_slot;//msqids
+Sta_time* shared_var_stat_time;//shared memory
+pid_t child;//id child
+sem_t *sem_log,*sem_msq;//id sems
+pthread_t create_thread;//id da thread que cria threads
+pthread_t *threads_coming,*threads_leaving;//array dos ids threads
 FILE* f_log;
+p_config configurations;
 p_coming_flight coming_flights;
 p_leaving_flight leaving_flights;
 
@@ -81,14 +84,14 @@ void terminate(){
 	}
 
   exit(0);
-}
+}//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
 void initialize_signals(){
   signal(SIGINT,terminate);
   signal(SIGHUP,terminate);
   signal(SIGQUIT,terminate);
   signal(SIGTERM,terminate);
-}
+}//acabar signalssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
 
 //*******************************THREADS****************************************
 
@@ -112,7 +115,7 @@ void* cthreads_leaving(void* flight){
 }
 
 void* cthreads_coming(void* flight){
-  coming_flight my_flight=*((coming_flight*)flight);
+  coming_flight my_flight=*((coming_flight*)flight);//para ficar como coming_flight
   char code[6];
   char* stime = current_time();
   msq_flights msq_flight;

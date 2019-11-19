@@ -127,31 +127,25 @@ p_slot create_list_slot(void){
     return aux;
 }
 
-void add_slot_eta(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency){
+void add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency){
     p_slot b4_insert_place;
     p_slot aux = (p_slot) malloc(sizeof(flight_slot));
     aux->slot=slot;
     aux->eta=eta;
     aux->fuel=fuel;
     aux->takeoff=takeoff;
-    b4_insert_place= search_place_to_insert_slot_ETA(head,eta);
+    if(eta>takeoff){
+      aux->priority=eta;
+    }
+    else{
+      aux->priority=takeoff;
+    }
+    b4_insert_place= search_place_to_insert_slot_ETA(head,aux->priority);
     aux->next=b4_insert_place->next;
     b4_insert_place->next=aux;
 }
 
-void add_slot_takeoff(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency){
-  p_slot b4_insert_place;
-  p_slot aux = (p_slot) malloc(sizeof(flight_slot));
-  aux->slot=slot;
-  aux->eta=eta;
-  aux->fuel=fuel;
-  aux->takeoff=takeoff;
-  b4_insert_place= search_place_to_insert_slot_takeoff(head,eta);
-  aux->next=b4_insert_place->next;
-  b4_insert_place->next=aux;
-}
-
-p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta){
+p_slot search_place_to_insert_slot_ETA(p_slot slot,int priority){
   p_slot current=head;
   p_slot next;
   if(current->next!=NULL){
@@ -170,13 +164,13 @@ p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta){
   }
 }
 
-p_slot search_place_to_insert_slot_takeoff(p_slot slot,int takeoff){
+p_slot search_place_to_insert_slot_priority(p_slot slot,int priority){
   p_slot current=head;
   p_slot next;
   if(current->next!=NULL){
     next=current->next;
     while(next->next!=NULL){
-        if(current->takeoff<=takeoff && next->takeoff>=takeoff){
+        if(current->takeoff<=priority && next->takeoff>=priority){
             return current;
         }
         current=next;
@@ -193,4 +187,19 @@ void remove_first_coming_flight(p_coming_flight head){
     p_slot aux=head->next;
     head->next =head->next->next;
     free (aux);
+}
+
+p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slot emergency_flight){
+  p_slot ant=flight_slot_head,current=flight_slot_head->next;
+  p_slot ant_emergency=search_place_to_insert_slot_ETA(emergency_head,emergency_flight->eta);
+  while(current!=NULL){
+    if(current==emergency_flight){
+      ant->next=current->next;
+      break;
+    }
+    current=current->next;
+    ant=ant->next;
+  }
+  emergency_head->next=ant_emergency->next;
+  ant_emergency->next=emergency_head;
 }

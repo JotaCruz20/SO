@@ -16,17 +16,17 @@
 #include <signal.h>
 #include <pthread.h>
 #include "struct_shm.h"
-#include "Flights.h"
 #define PIPE_NAME  "named_pipe"
 #define DEBUG 0
 #define SLOT 2
 #define FLIGHTS 1
 
-int shmid_stat_time,shmid_flights;//shared memory ids
+int shmid_stat_time,shmid_slot;//shared memory ids
 int counter_threads_leaving=0,counter_threads_coming=0;//counters
 int fd_pipe;//pipe id
 int msqid_flights,msqid_slot;//msqids
 Sta_time* shared_var_stat_time;//shared memory
+p_slot slots;
 pid_t child;//id child
 sem_t *sem_log,*sem_msq;//id sems
 pthread_t create_thread;//id da thread que cria threads
@@ -51,10 +51,10 @@ void initialize_MSQ(){
 
 //******************************SIGNALS*****************************************
 
-void terminate(){
-  char message[7000];
-  int i;
-  read(fd_pipe,message,sizeof(message));
+void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+  char message[7000],code[70];
+  int i,counter=0,nbits;
+  nbits=read(fd_pipe,message,sizeof(message));
   close(fd_pipe);
   if(nbits > 0){
     while(message[counter]!='\0'){
@@ -84,14 +84,14 @@ void terminate(){
 	}
 
   exit(0);
-}//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+}
 
-void initialize_signals(){
+void initialize_signals(){//acabar signalssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
   signal(SIGINT,terminate);
   signal(SIGHUP,terminate);
   signal(SIGQUIT,terminate);
   signal(SIGTERM,terminate);
-}//acabar signalssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+}
 
 //*******************************THREADS****************************************
 
@@ -111,7 +111,7 @@ void* cthreads_leaving(void* flight){
   msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight) - sizeof(long),0);
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),SLOT,0);
   sem_post(sem_msq);
-  printf("Recebi slot numero %d\n", msq_slot.slot);
+  printf("Recebi slot numero %d\n", msq_slot.slot->slot);
 }
 
 void* cthreads_coming(void* flight){
@@ -132,7 +132,7 @@ void* cthreads_coming(void* flight){
   msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0);
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot),SLOT,0);
   sem_post(sem_msq);
-  printf("Recebi slot numero %d\n", msq_slot.slot);
+  printf("Recebi slot numero %d\n", msq_slot.slot->slot);
 }
 
 void* thread_creates_threads(void* id){
@@ -216,8 +216,17 @@ void initialize_shm(){
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
+  if((shmid_slot=shmget(IPC_PRIVATE,sizeof(flight_slot)*(configurations->D+configurations->A),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
+    perror("error in shmget with Sta_log_time");
+    exit(1);
+  }
+
+  if((slots=(p_slot) shmat(shmid_slot,NULL,0))==(p_slot)-1){  //atribui um bloco de memória ao ponteiro shared_var
+    perror("error in shmat with Sta_log_time");
+    exit(1);
+  }
+  slots=create_list_slot();
   shared_var_stat_time->time_init=time(NULL);
-  configurations=inicia("config.txt");
 }
 
 //**********************************TC******************************************
@@ -234,7 +243,7 @@ void TorreControlo(){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
       printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq_slot.msgtype=SLOT;
-      msq_slot.slot=count;
+      msq_slot.slot=add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
       msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),0);
       count++;
   }
@@ -247,6 +256,7 @@ int main(){
   char message[7000],code[70],keep_code[70],f_code[10];
   char *token;
   f_log=fopen("log.txt","w");
+  configurations=inicia("config.txt");
   initialize_semaphores();
   initialize_signals();
   initialize_MSQ();

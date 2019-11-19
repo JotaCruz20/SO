@@ -72,7 +72,6 @@ p_leaving_flight create_list_leaving_flight(void){
 }
 
 void print_leaving_flights_list(p_leaving_flight head){
-    /*Prints local data*/
     p_leaving_flight current=head->next;
     while (current){
         printf("->flight code %s init: %d takeoff: %d \n",current->flight_code,current->init,current->takeoff);
@@ -127,7 +126,7 @@ p_slot create_list_slot(void){
     return aux;
 }
 
-void add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency){
+p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta){
     p_slot b4_insert_place;
     p_slot aux = (p_slot) malloc(sizeof(flight_slot));
     aux->slot=slot;
@@ -143,10 +142,11 @@ void add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency){
     b4_insert_place= search_place_to_insert_slot_ETA(head,aux->priority);
     aux->next=b4_insert_place->next;
     b4_insert_place->next=aux;
+    return aux;
 }
 
-p_slot search_place_to_insert_slot_ETA(p_slot slot,int priority){
-  p_slot current=head;
+p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta){
+  p_slot current=slot;
   p_slot next;
   if(current->next!=NULL){
     next=current->next;
@@ -164,7 +164,7 @@ p_slot search_place_to_insert_slot_ETA(p_slot slot,int priority){
   }
 }
 
-p_slot search_place_to_insert_slot_priority(p_slot slot,int priority){
+p_slot search_place_to_insert_slot_priority(p_slot head,int priority){
   p_slot current=head;
   p_slot next;
   if(current->next!=NULL){
@@ -183,7 +183,7 @@ p_slot search_place_to_insert_slot_priority(p_slot slot,int priority){
   }
 }
 
-void remove_first_coming_flight(p_coming_flight head){
+void remove_first_slot(p_slot head){
     p_slot aux=head->next;
     head->next =head->next->next;
     free (aux);
@@ -200,6 +200,7 @@ p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slo
     current=current->next;
     ant=ant->next;
   }
-  emergency_head->next=ant_emergency->next;
-  ant_emergency->next=emergency_head;
+  emergency_flight->next=ant_emergency->next;
+  ant_emergency->next=emergency_flight;
+  return emergency_flight;
 }

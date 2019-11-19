@@ -1,6 +1,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "Flights.h"
 
 typedef struct Config{
   int ut,D,A,hld_min,hld_max;
@@ -38,7 +39,7 @@ typedef struct{
 
 typedef struct{
   long msgtype;
-  int slot;
+  p_slot slot;
 }slot_number;
 
 //statistics functions**********************************************************
@@ -56,7 +57,7 @@ void log_landing(FILE *f,char* flight,char* track,char state);
 void log_leaving(FILE *f,char* flight);
 void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
-void log_segint(FILE *f,chr* s);
+void log_segint(FILE *f,char* s);
 
 //config functions
 p_config inicia(char*);

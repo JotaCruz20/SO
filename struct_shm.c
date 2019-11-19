@@ -136,7 +136,7 @@ int new_command(FILE *f, char* command,Sta_time* shared_var_sta_time,p_config co
   }
 }
 
-void log_segint(FILE *f,chr* s){
+void log_segint(FILE *f,char* s){
   printf("Flight not accpeted: %s\n",s);
   fprintf(f,"Flight not accpeted: %s\n", s);
   fflush(f);

@@ -15,15 +15,12 @@
 #include <sys/msg.h>
 #include <signal.h>
 #include <pthread.h>
-
 #include "struct_shm.h"
 #include "Flights.h"
 #define PIPE_NAME  "named_pipe"
 #define DEBUG 0
 #define SLOT 2
 #define FLIGHTS 1
-
-
 
 int shmid_stat_time,shmid_flights,counter_threads_leaving=0,counter_threads_coming=0,fd_pipe,msqid_flights,msqid_slot;
 Sta_time* shared_var_stat_time;
@@ -52,12 +49,21 @@ void initialize_MSQ(){
 //******************************SIGNALS*****************************************
 
 void terminate(){
-  char message[80];
+  char message[7000];
   int i;
   read(fd_pipe,message,sizeof(message));
   close(fd_pipe);
-
-
+  if(nbits > 0){
+    while(message[counter]!='\0'){
+      memset(code,0,70);
+      for(i=0;message[counter]!='\n';i++){
+        code[i]=message[counter];
+        counter++;
+      }
+      counter++;
+      log_segint(f_log,code);
+    }
+  }
   fclose(f_log);
   sem_close(sem_log);
   sem_close(sem_msq);

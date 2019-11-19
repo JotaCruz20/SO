@@ -56,6 +56,7 @@ void log_landing(FILE *f,char* flight,char* track,char state);
 void log_leaving(FILE *f,char* flight);
 void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
+void log_segint(FILE *f,chr* s);
 
 //config functions
 p_config inicia(char*);

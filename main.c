@@ -111,7 +111,7 @@ void* cthreads_leaving(void* flight){
   printf("Recebi slot numero %d\n", msq_slot.slot);
 }
 
-void* cthreads_coming(void* flight){//acabar log e msq
+void* cthreads_coming(void* flight){
   coming_flight my_flight=*((coming_flight*)flight);
   char code[6];
   char* stime = current_time();

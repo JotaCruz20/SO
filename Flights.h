@@ -12,14 +12,35 @@ typedef struct c_node{
   p_coming_flight next;
 }coming_flight;
 
+typedef struct s_node* p_slot;
+typedef struct s_node{
+  int slot,emergency;//para todos
+  int takeoff;//para leaving flights
+  int fuel,eta,holding;//para coming flights
+  p_slot next;
+}flight_slot;
+
+//*************************Coming Flights***************************************
 
 p_coming_flight create_list_coming_flight(void);
-int print_coming_flights_list(p_coming_flight head);
+void print_coming_flights_list(p_coming_flight head);
 void add_coming_flight(p_coming_flight head,char* flight_code,int init,int ETA,int fuel);
 p_coming_flight search_place_to_insert_coming(p_coming_flight head,int init);
 void remove_first_coming_flight(p_coming_flight head);
+
+//*************************Leaving Flights**************************************
+
 p_leaving_flight create_list_leaving_flight(void);
 int print_leaving_flights_list(p_leaving_flight head);
 void add_leaving_flight(p_leaving_flight head,char* flight_code,int init,int takeoff);
 p_leaving_flight search_place_to_insert_leaving(p_leaving_flight head,int init);
 void remove_first_leaving_flight(p_leaving_flight head);
+
+//*****************************SLOTS********************************************
+
+p_slot create_list_slot(void);
+void add_slot_eta(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency);
+void add_slot_takeoff(p_slot head,int slot,int takeoff,int fuel,int eta,int emergency);
+p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta);
+p_slot search_place_to_insert_slot_takeoff(p_slot slot,int takeoff);
+void remove_first_slot(p_slot head);

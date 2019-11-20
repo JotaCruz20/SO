@@ -26,12 +26,12 @@ typedef struct statistic{
 typedef Statistic* p_sta;
 
 typedef struct{
-    Statistic* statistics;
+    p_sta statistics;
     time_t time_init;
 }Sta_time;
 //message queue structs*********************************************************
 typedef struct{
-  //receving
+  //receiving
   long msgtype;
   int takeoff;
   int ETA;

@@ -51,8 +51,8 @@ void initialize_MSQ(){
 void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   char message[7000],code[70];
   int i,counter=0,nbits;
-  nbits=read(fd_pipe,message,sizeof(message));
-  close(fd_pipe);
+  //nbits=read(fd_pipe,message,sizeof(message));
+  //close(fd_pipe);
   if(nbits > 0){
     while(message[counter]!='\0'){
       memset(code,0,70);
@@ -79,15 +79,48 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   for(i=0;i<counter_threads_leaving;i++){
     pthread_join(threads_leaving[i],NULL);
 	}
-
+  printf("\nThe execution was interrupted");
   exit(0);
 }
 
-void initialize_signals(){//acabar signalsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+void sigusr1(){
+  update_statistic(shared_var_stat_time->statistics);
+  printf("Statistics:\n\n->Total created flights:%d\n\t->Total landed flights: %d\n\t->Average wait time to land: %f\n\t->Total departed flights: %d\n\t->Average wait time to depart: %f\n\t->Average number of holdings on a flight: %f\n\t->Average number of holdings on an emergency flight: %f\n\t->Total number of redirected flights: %d\n\t->Total number of rejected flights: %d",shared_var_stat_time->statistics->created_flights,shared_var_stat_time->statistics->landed_flights,shared_var_stat_time->statistics->average_wait_time_landing,shared_var_stat_time->statistics->take_of_flights,shared_var_stat_time->statistics->average_wait_time_taking_of,shared_var_stat_time->statistics->average_number_holds,shared_var_stat_time->statistics->average_number_holds_urgency,shared_var_stat_time->statistics->number_redirected_flights,shared_var_stat_time->statistics->rejected_flights);
+}
+
+void initialize_signals(){
   signal(SIGINT,terminate);
-  signal(SIGHUP,terminate);
-  signal(SIGQUIT,terminate);
-  signal(SIGTERM,terminate);
+  signal(SIGHUP,SIG_IGN);
+  signal(SIGQUIT,SIG_IGN);
+  signal(SIGILL,SIG_IGN);
+  signal(SIGTRAP,SIG_IGN);
+  signal(SIGABRT,SIG_IGN);
+  //signal(SIGEMT,SIG_IGN);
+  signal(SIGFPE,SIG_IGN);
+  signal(SIGKILL,SIG_IGN);
+  signal(SIGBUS,SIG_IGN);
+  signal(SIGSEGV,SIG_IGN);
+  signal(SIGSYS,SIG_IGN);
+  signal(SIGPIPE,SIG_IGN);
+  signal(SIGALRM,SIG_IGN);
+  signal(SIGTERM,SIG_IGN);
+  signal(SIGURG,SIG_IGN);
+  signal(SIGSTOP,SIG_IGN);
+  signal(SIGTSTP,SIG_IGN);
+  signal(SIGCONT,SIG_IGN);
+  signal(SIGCHLD,SIG_IGN);
+  signal(SIGTTIN,SIG_IGN);
+  signal(SIGTTOU,SIG_IGN);
+  signal(SIGIO,SIG_IGN);
+  signal(SIGXCPU,SIG_IGN);
+  signal(SIGXFSZ,SIG_IGN);
+  signal(SIGVTALRM,SIG_IGN);
+  signal(SIGPROF,SIG_IGN);
+  signal(SIGWINCH,SIG_IGN);
+  //signal(SIGLOST,SIG_IGN);
+  signal(SIGUSR1,sigusr1);
+  signal(SIGUSR2,SIG_IGN);
+
 }
 
 //*******************************THREADS****************************************
@@ -105,7 +138,7 @@ void* cthreads_leaving(void* flight){
   fflush(f_log);
   msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
 }
 
 /*void try_fuel(int fuel,int eta){
@@ -134,7 +167,7 @@ void* cthreads_coming(void* flight){
   fflush(f_log);
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
   //try_fuel(msq.slot.fuel,msq.slot.eta);
 }
 
@@ -271,7 +304,7 @@ void TorreControlo(){
   //criar thread q vai atualizar o fuel dos avioes
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
-      printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
+      //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq.msgtype=SLOT;
       count++;
       add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
@@ -358,5 +391,4 @@ int main(){
       }
     }
   }
-  terminate();
 }

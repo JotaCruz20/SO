@@ -39,8 +39,13 @@ typedef struct{
 
 typedef struct{
   long msgtype;
-  p_slot slot;
+  flight_slot slot;
 }slot_number;
+
+typedef struct{
+  long msgtype;
+  int hold;
+}msq_hold;
 
 //statistics functions**********************************************************
 void update_statistic();

@@ -20,15 +20,16 @@
 #define DEBUG 0
 #define SLOT 2
 #define FLIGHTS 1
+#define HOLDING 3
 
 int shmid_stat_time,shmid_slot;//shared memory ids
 int counter_threads_leaving=0,counter_threads_coming=0;//counters
 int fd_pipe;//pipe id
-int msqid_flights,msqid_slot;//msqids
+int msqid_flights,msqid_slot,msqid_hold;//message queue ids
 Sta_time* shared_var_stat_time;//shared memory
 p_slot slots;
 pid_t child;//id child
-sem_t *sem_log,*sem_msq;//id sems
+sem_t *sem_log,*sem_msq,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas;//id sems
 pthread_t create_thread;//id da thread que cria threads
 pthread_t *threads_coming,*threads_leaving;//array dos ids threads
 FILE* f_log;
@@ -47,11 +48,15 @@ void initialize_MSQ(){
     perror("Cant create message queue");
     exit(0);
   }
+  if((msqid_hold = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
+    perror("Cant create message queue");
+    exit(0);
+  }
 }
 
 //******************************SIGNALS*****************************************
 
-void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   char message[7000],code[70];
   int i,counter=0,nbits;
   nbits=read(fd_pipe,message,sizeof(message));
@@ -86,7 +91,7 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   exit(0);
 }
 
-void initialize_signals(){//acabar signalssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
+void initialize_signals(){//acabar signalsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
   signal(SIGINT,terminate);
   signal(SIGHUP,terminate);
   signal(SIGQUIT,terminate);
@@ -110,8 +115,19 @@ void* cthreads_leaving(void* flight){
   sem_wait(sem_msq);
   msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight) - sizeof(long),0);
   msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),SLOT,0);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq_slot.slot.slot,msq_slot.slot.priority,msq_slot.slot.takeoff,msq_slot.slot.fuel,msq_slot.slot.eta);  print de teste
   sem_post(sem_msq);
-  printf("Recebi slot numero %d\n", msq_slot.slot->slot);
+}
+
+void try_fuel(int fuel,int eta){
+  msq_hold hold;
+  while(fuel!=4+eta+configurations->L){
+    sleep(configurations->ut);
+    fuel-=1;
+  }
+  hold.msgtype=HOLD;
+  hold.hold=1;
+  msgsnd(msqid_hold,&hold,sizeof(msq_hold)- sizeof(long),0);
 }
 
 void* cthreads_coming(void* flight){
@@ -130,9 +146,10 @@ void* cthreads_coming(void* flight){
   fflush(f_log);
   sem_wait(sem_msq);
   msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0);
-  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot),SLOT,0);
+  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot)-sizeof(long),SLOT,0);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq_slot.slot.slot,msq_slot.slot.priority,msq_slot.slot.takeoff,msq_slot.slot.fuel,msq_slot.slot.eta); print de teste
   sem_post(sem_msq);
-  printf("Recebi slot numero %d\n", msq_slot.slot->slot);
+  try_fuel(msq_slot.fuel);
 }
 
 void* thread_creates_threads(void* id){
@@ -202,6 +219,16 @@ void initialize_semaphores(){
   sem_log=sem_open("LOG",O_CREAT|O_EXCL,0766,1);
   sem_unlink("MSQ");
   sem_msq=sem_open("MSQ",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("01L");
+  sem_01L=sem_open("01l",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("01R");
+  sem_01R=sem_open("01R",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("28R");
+  sem_28R=sem_open("28R",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("28L");
+  sem_28L=sem_open("28L",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("PISTAS");
+  sem_pistas=sem_open("PISTAS",O_CREAT|O_EXCL,0766,1);
 }
 
 //******************************SHARED MEMORY***********************************
@@ -231,6 +258,22 @@ void initialize_shm(){
 
 //**********************************TC******************************************
 
+flight_slot fill_buffer(int takeoff,int fuel,int eta,int count){
+  flight_slot buffer;
+  buffer.takeoff=takeoff;
+  buffer.fuel=fuel;
+  buffer.eta=eta;
+  buffer.slot=count;
+  if(takeoff>eta){
+    buffer.priority=takeoff;
+  }
+  else{
+    buffer.priority=eta;
+  }
+  return buffer;
+}
+
+
 void TorreControlo(){
   char* stime = current_time();
   msq_flights msq;
@@ -239,13 +282,16 @@ void TorreControlo(){
   printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
   fflush(f_log);
+  //criar thread q vai receber mensagens de hold e trocar para a linked list de holds
+  //criar thread q vai atualizar o fuel dos avioes
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
-      printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
+      //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff); print de teste
       msq_slot.msgtype=SLOT;
-      msq_slot.slot=add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
-      msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),0);
       count++;
+      add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
+      msq_slot.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
+      msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot)-sizeof(long),0);
   }
 }
 

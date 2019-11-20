@@ -31,21 +31,16 @@ typedef struct{
 }Sta_time;
 //message queue structs*********************************************************
 typedef struct{
+  //receving
   long msgtype;
   int takeoff;
   int ETA;
   int fuel;
-}msq_flights;
-
-typedef struct{
-  long msgtype;
+  //sending
   flight_slot slot;
-}slot_number;
-
-typedef struct{
-  long msgtype;
+  //hold
   int hold;
-}msq_hold;
+}msq_flights;
 
 //statistics functions**********************************************************
 void update_statistic();

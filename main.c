@@ -25,7 +25,7 @@
 int shmid_stat_time,shmid_slot;//shared memory ids
 int counter_threads_leaving=0,counter_threads_coming=0;//counters
 int fd_pipe;//pipe id
-int msqid_flights,msqid_slot,msqid_hold;//message queue ids
+int msqid_flights;//message queue ids
 Sta_time* shared_var_stat_time;//shared memory
 p_slot slots;
 pid_t child;//id child
@@ -41,14 +41,6 @@ p_leaving_flight leaving_flights;
 
 void initialize_MSQ(){
   if((msqid_flights = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
-    perror("Cant create message queue");
-    exit(0);
-  }
-  if((msqid_slot = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
-    perror("Cant create message queue");
-    exit(0);
-  }
-  if((msqid_hold = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
     perror("Cant create message queue");
     exit(0);
   }
@@ -103,53 +95,47 @@ void initialize_signals(){//acabar signalsssssssssssssssssssssssssssssssssssssss
 void* cthreads_leaving(void* flight){
   leaving_flight my_flight=*((leaving_flight*)flight);
   char* stime = current_time();
-  msq_flights msq_flight;
-  slot_number msq_slot;
-  msq_flight.msgtype=FLIGHTS;
-  msq_flight.ETA=0;
-  msq_flight.fuel=0;
-  msq_flight.takeoff=my_flight.takeoff;
+  msq_flights msq;
+  msq.msgtype=FLIGHTS;
+  msq.ETA=0;
+  msq.fuel=0;
+  msq.takeoff=my_flight.takeoff;
   printf("%s DEPARTURE %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
-  sem_wait(sem_msq);
-  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight) - sizeof(long),0);
-  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot) - sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq_slot.slot.slot,msq_slot.slot.priority,msq_slot.slot.takeoff,msq_slot.slot.fuel,msq_slot.slot.eta);  print de teste
-  sem_post(sem_msq);
+  msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
+  msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
 }
 
-void try_fuel(int fuel,int eta){
-  msq_hold hold;
+/*void try_fuel(int fuel,int eta){
+  msq_flights hold;
   while(fuel!=4+eta+configurations->L){
     sleep(configurations->ut);
     fuel-=1;
   }
-  hold.msgtype=HOLD;
+  hold.msgtype=HOLDING;
   hold.hold=1;
-  msgsnd(msqid_hold,&hold,sizeof(msq_hold)- sizeof(long),0);
-}
+  //msgsnd(msqid_hold,&hold,sizeof(msq_hold)- sizeof(long),0);
+}*/
 
 void* cthreads_coming(void* flight){
   coming_flight my_flight=*((coming_flight*)flight);//para ficar como coming_flight
   char code[6];
   char* stime = current_time();
-  msq_flights msq_flight;
-  slot_number msq_slot;
-  msq_flight.msgtype=FLIGHTS;
-  msq_flight.ETA=my_flight.ETA;
-  msq_flight.fuel=my_flight.fuel;
-  msq_flight.takeoff=0;
+  msq_flights msq;
+  msq.msgtype=FLIGHTS;
+  msq.ETA=my_flight.ETA;
+  msq.fuel=my_flight.fuel;
+  msq.takeoff=0;
   strcpy(code,my_flight.flight_code);
   printf("%s ARRIVAL %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
-  sem_wait(sem_msq);
-  msgsnd(msqid_flights,&msq_flight,sizeof(msq_flight)- sizeof(long),0);
-  msgrcv(msqid_slot,&msq_slot,sizeof(msq_slot)-sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq_slot.slot.slot,msq_slot.slot.priority,msq_slot.slot.takeoff,msq_slot.slot.fuel,msq_slot.slot.eta); print de teste
-  sem_post(sem_msq);
-  try_fuel(msq_slot.fuel);
+  msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
+  msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  //try_fuel(msq.slot.fuel,msq.slot.eta);
 }
 
 void* thread_creates_threads(void* id){
@@ -277,7 +263,6 @@ flight_slot fill_buffer(int takeoff,int fuel,int eta,int count){
 void TorreControlo(){
   char* stime = current_time();
   msq_flights msq;
-  slot_number msq_slot;
   int count=0;
   printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
@@ -286,12 +271,12 @@ void TorreControlo(){
   //criar thread q vai atualizar o fuel dos avioes
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
-      //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff); print de teste
-      msq_slot.msgtype=SLOT;
+      printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
+      msq.msgtype=SLOT;
       count++;
       add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
-      msq_slot.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
-      msgsnd(msqid_slot,&msq_slot,sizeof(msq_slot)-sizeof(long),0);
+      msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
+      msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }
 }
 

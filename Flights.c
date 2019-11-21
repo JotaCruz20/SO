@@ -183,6 +183,14 @@ p_slot search_place_to_insert_slot_priority(p_slot head,int priority){
   }
 }
 
+p_slot find(p_slot head,int slot){
+  p_slot aux=head->next;
+  while(aux->slot!=slot && aux!=NULL){
+    aux=aux->next;
+  }
+  return aux;
+}
+
 void remove_first_slot(p_slot head){
     p_slot aux=head->next;
     head->next =head->next->next;

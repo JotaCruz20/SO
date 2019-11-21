@@ -20,6 +20,11 @@ typedef struct s_node{
   p_slot next;
 }flight_slot;
 
+typedef struct{
+  p_slot slots;
+  p_slot urgency;
+}str_slots;
+
 //*************************Coming Flights***************************************
 
 p_coming_flight create_list_coming_flight(void);
@@ -43,4 +48,5 @@ p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta);
 p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta);
 p_slot search_place_to_insert_slot_priority(p_slot slot,int takeoff);
 p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slot emergency_flight);
+p_slot find(p_slot head,int slot);
 void remove_first_slot(p_slot head);

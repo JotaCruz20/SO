@@ -40,6 +40,8 @@ typedef struct{
   flight_slot slot;
   //hold
   int hold;
+  //redirecte
+  int redirect;
 }msq_flights;
 
 //statistics functions**********************************************************

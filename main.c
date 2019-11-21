@@ -20,17 +20,17 @@
 #define DEBUG 0
 #define SLOT 2
 #define FLIGHTS 1
-#define HOLDING 3
+#define URGENCY 3
 
 int shmid_stat_time,shmid_slot;//shared memory ids
 int counter_threads_leaving=0,counter_threads_coming=0;//counters
 int fd_pipe;//pipe id
 int msqid_flights;//message queue ids
 Sta_time* shared_var_stat_time;//shared memory
-p_slot slots;
+str_slots* shm_slots;
 pid_t child;//id child
-sem_t *sem_log,*sem_msq,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas;//id sems
-pthread_t create_thread;//id da thread que cria threads
+sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas;//id sems
+pthread_t threads_functions[3];//id da thread que cria threads
 pthread_t *threads_coming,*threads_leaving;//array dos ids threads
 FILE* f_log;
 p_config configurations;
@@ -51,8 +51,8 @@ void initialize_MSQ(){
 void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   char message[7000],code[70];
   int i,counter=0,nbits;
-  //nbits=read(fd_pipe,message,sizeof(message));
-  //close(fd_pipe);
+  nbits=read(fd_pipe,message,sizeof(message));
+  close(fd_pipe);
   if(nbits > 0){
     while(message[counter]!='\0'){
       memset(code,0,70);
@@ -66,7 +66,6 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
   }
   fclose(f_log);
   sem_close(sem_log);
-  sem_close(sem_msq);
   sem_unlink("LOG");
   sem_unlink("MSQ");
   if (shmid_stat_time >= 0){ // remove shared memory
@@ -141,16 +140,17 @@ void* cthreads_leaving(void* flight){
   //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
 }
 
-/*void try_fuel(int fuel,int eta){
-  msq_flights hold;
-  while(fuel!=4+eta+configurations->L){
-    sleep(configurations->ut);
+void try_fuel(int fuel,int eta,flight_slot flight){
+  msq_flights msq;
+  while(fuel<4+eta+configurations->L){
+    usleep(configurations->ut*1000);
     fuel-=1;
   }
-  hold.msgtype=HOLDING;
-  hold.hold=1;
-  //msgsnd(msqid_hold,&hold,sizeof(msq_hold)- sizeof(long),0);
-}*/
+  msq.msgtype=URGENCY;
+  msq.slot=flight;
+  printf("Fiquei sem fuel suficiente vou para modo urgencia %d %d\n",fuel,eta);
+  msgsnd(msqid_flights,&msq,sizeof(msq_flights)- sizeof(long),0);
+}
 
 void* cthreads_coming(void* flight){
   coming_flight my_flight=*((coming_flight*)flight);//para ficar como coming_flight
@@ -168,7 +168,8 @@ void* cthreads_coming(void* flight){
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
   //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
-  //try_fuel(msq.slot.fuel,msq.slot.eta);
+  printf("%s tentando o fuel\n",code );
+  try_fuel(msq.slot.fuel,msq.slot.eta,msq.slot);
 }
 
 void* thread_creates_threads(void* id){
@@ -204,7 +205,7 @@ void* thread_creates_threads(void* id){
 }
 
 void initialize_thread_create(){
-  if(pthread_create(&create_thread,NULL,thread_creates_threads,NULL)!=0){
+  if(pthread_create(&threads_functions[0],NULL,thread_creates_threads,NULL)!=0){
     perror("error in pthread_create coming!");
   }
 }
@@ -236,8 +237,6 @@ void initialize_pipe(){
 void initialize_semaphores(){
   sem_unlink("LOG");
   sem_log=sem_open("LOG",O_CREAT|O_EXCL,0766,1);
-  sem_unlink("MSQ");
-  sem_msq=sem_open("MSQ",O_CREAT|O_EXCL,0766,1);
   sem_unlink("01L");
   sem_01L=sem_open("01l",O_CREAT|O_EXCL,0766,1);
   sem_unlink("01R");
@@ -262,16 +261,17 @@ void initialize_shm(){
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
-  if((shmid_slot=shmget(IPC_PRIVATE,sizeof(flight_slot)*(configurations->D+configurations->A),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
+  if((shmid_slot=shmget(IPC_PRIVATE,sizeof(str_slots)*(configurations->D+configurations->A),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
     perror("error in shmget with Sta_log_time");
     exit(1);
   }
 
-  if((slots=(p_slot) shmat(shmid_slot,NULL,0))==(p_slot)-1){  //atribui um bloco de memória ao ponteiro shared_var
+  if((shm_slots=(str_slots*)shmat(shmid_slot,NULL,0))==(str_slots*)-1){  //atribui um bloco de memória ao ponteiro shared_var
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
-  slots=create_list_slot();
+  shm_slots->slots=create_list_slot();
+  shm_slots->urgency=create_list_slot();
   shared_var_stat_time->time_init=time(NULL);
 }
 
@@ -292,6 +292,37 @@ flight_slot fill_buffer(int takeoff,int fuel,int eta,int count){
   return buffer;
 }
 
+void* receive_msq_urgency(void* id){
+  msq_flights msq;
+  p_slot aux;
+  while(1){
+    msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
+    aux=find(shm_slots->slots,msq.slot.slot);
+    change_to_emergency(shm_slots->urgency,shm_slots->slots,aux);
+    printf("Mudei para emergencia\n");
+  }
+
+}
+
+void redirect_flight(){//acabar para o andre n ficar triste e zangado
+  printf("Ola Bros\n");
+}
+
+void* update_fuel(void* id){
+  p_slot slot_test;
+  while(1){
+    slot_test=shm_slots->slots->next;
+    sleep(configurations->ut);
+    while(slot_test->next!=NULL){
+      if(slot_test->fuel!=0){
+        slot_test->fuel-=1;
+      }
+      if(slot_test->fuel==0 && slot_test->eta!=0){
+        redirect_flight();
+      }
+    }
+  }
+}
 
 void TorreControlo(){
   char* stime = current_time();
@@ -300,14 +331,14 @@ void TorreControlo(){
   printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
   fflush(f_log);
-  //criar thread q vai receber mensagens de hold e trocar para a linked list de holds
-  //criar thread q vai atualizar o fuel dos avioes
+  pthread_create(&threads_functions[1],NULL,receive_msq_urgency,NULL);
+  pthread_create(&threads_functions[2],NULL,update_fuel,NULL);
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
       //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq.msgtype=SLOT;
       count++;
-      add_slot(slots,count,msq.takeoff,msq.fuel,msq.ETA);
+      add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA);
       msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
       msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }

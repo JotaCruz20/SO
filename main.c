@@ -88,7 +88,6 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
     pthread_join(threads_leaving[i],NULL);
 	}
   kill(0, SIGTERM);
-  printf("\nThe execution was interrupted");
   exit(0);
 }
 

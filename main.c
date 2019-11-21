@@ -64,20 +64,30 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
       log_segint(f_log,code);
     }
   }
+  //signal de quando as threads todas acabarem eq continua aqui
   fclose(f_log);
   sem_close(sem_log);
+  sem_close(sem_01L);
+  sem_close(sem_01R);
+  sem_close(sem_28L);
+  sem_close(sem_28R);
+  sem_close(sem_pistas);
   sem_unlink("LOG");
-  sem_unlink("MSQ");
+  sem_unlink("01L");
+  sem_unlink("01R");
+  sem_unlink("28R");
+  sem_unlink("28L");
+  sem_unlink("PISTAS");
   if (shmid_stat_time >= 0){ // remove shared memory
     shmctl(shmid_stat_time, IPC_RMID, NULL);
   }
-  kill(0, SIGTERM);
   for(i=0;i<counter_threads_coming;i++){
     pthread_join(threads_coming[i],NULL);
 	}
   for(i=0;i<counter_threads_leaving;i++){
     pthread_join(threads_leaving[i],NULL);
 	}
+  kill(0, SIGTERM);
   printf("\nThe execution was interrupted");
   exit(0);
 }
@@ -102,7 +112,6 @@ void initialize_signals(){
   signal(SIGSYS,SIG_IGN);
   signal(SIGPIPE,SIG_IGN);
   signal(SIGALRM,SIG_IGN);
-  signal(SIGTERM,SIG_IGN);
   signal(SIGURG,SIG_IGN);
   signal(SIGSTOP,SIG_IGN);
   signal(SIGTSTP,SIG_IGN);
@@ -142,7 +151,7 @@ void* cthreads_leaving(void* flight){
 
 void try_fuel(int fuel,int eta,flight_slot flight){
   msq_flights msq;
-  while(fuel<4+eta+configurations->L){
+  while(fuel>4+eta+configurations->L){
     usleep(configurations->ut*1000);
     fuel-=1;
   }
@@ -311,8 +320,8 @@ void redirect_flight(){//acabar para o andre n ficar triste e zangado
 void* update_fuel(void* id){
   p_slot slot_test;
   while(1){
-    slot_test=shm_slots->slots->next;
-    sleep(configurations->ut);
+    slot_test=shm_slots->slots;
+    usleep(configurations->ut*1000);
     while(slot_test->next!=NULL){
       if(slot_test->fuel!=0){
         slot_test->fuel-=1;
@@ -320,9 +329,29 @@ void* update_fuel(void* id){
       if(slot_test->fuel==0 && slot_test->eta!=0){
         redirect_flight();
       }
+      slot_test=slot_test->next;
     }
   }
 }
+
+/*void* departures_arrivals(void* id){
+  int time_passed;
+  time_t time_now;
+  p_slots aux_slot;
+  p_slots aux_emergency;
+  while (1) {
+    time_now=time(NULL);
+    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    aux_slot=shm_slots->slot;
+    aux_emergency=shm_slots->emergency;
+    while(aux_emergency->next!=NULL){
+      if(aux_emergency->)
+    }
+    while(aux_slot->next!=NULL){
+
+    }
+  }
+}*/
 
 void TorreControlo(){
   char* stime = current_time();
@@ -333,6 +362,7 @@ void TorreControlo(){
   fflush(f_log);
   pthread_create(&threads_functions[1],NULL,receive_msq_urgency,NULL);
   pthread_create(&threads_functions[2],NULL,update_fuel,NULL);
+  //pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
       //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);

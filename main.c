@@ -333,7 +333,7 @@ void* update_fuel(void* id){
   }
 }
 
-/*void* departures_arrivals(void* id){
+void* departures_arrivals(void* id){
   int time_passed;
   time_t time_now;
   p_slots aux_slot;
@@ -343,14 +343,59 @@ void* update_fuel(void* id){
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     aux_slot=shm_slots->slot;
     aux_emergency=shm_slots->emergency;
-    while(aux_emergency->next!=NULL){
-      if(aux_emergency->)
-    }
-    while(aux_slot->next!=NULL){
-
+    while(1){
+      if(aux_emergency->next!=NULL){
+        if(aux_emergency->eta>=time_passed){
+          if(sem_getvalue(sem_pistas)==1){
+            sem_wait(sem_pistas);
+            if(sem_getvalue(sem_28L)==1){
+              sem_wait(sem_28L);
+              //função para aterrar
+              sem_post(sem_28L);
+            }
+            else if(sem_getvalue(sem_28R)==1){
+              sem_wait(sem_28R);
+              //função para aterrar
+              sem_post(sem_28R);
+            }
+            else{
+              //função para holding
+            }
+            sem_post(sem_pistas);
+          }
+          else{
+            //função holding
+          }
+        }
+      }
+      else if (aux_slot->next!=NULL){
+        if(aux_slot->priority>=time_passed){
+          if(aux_slot->next!=NULL)
+          if(sem_getvalue(sem_pistas)==1){
+            sem_wait(sem_pistas);
+            if(sem_getvalue(sem_28L)==1){
+              sem_wait(sem_28L);
+              //função para aterrar
+              sem_post(sem_28L);
+            }
+            else if(sem_getvalue(sem_28R)==1){
+              sem_wait(sem_28R);
+              //função para aterrar
+              sem_post(sem_28R);
+            }
+            else{
+              //função para holding
+            }
+            sem_post(sem_pistas);
+          }
+          else{
+            //função holding
+          }
+        }
+      }
     }
   }
-}*/
+}
 
 void TorreControlo(){
   char* stime = current_time();

@@ -142,6 +142,7 @@ void* cthreads_leaving(void* flight){
   msq.ETA=0;
   msq.fuel=0;
   msq.takeoff=my_flight.takeoff;
+  strcpy(msq.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
   printf("%s DEPARTURE %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
@@ -181,6 +182,7 @@ void* cthreads_coming(void* flight){
   msq.ETA=my_flight.ETA;
   msq.fuel=my_flight.fuel;
   msq.takeoff=0;
+  strcpy(msq.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
   printf("%s ARRIVAL %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
@@ -336,9 +338,10 @@ void* receive_msq_urgency(void* id){
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
     aux=find(shm_slots->slots,msq.slot.slot);
     change_to_emergency(shm_slots->urgency,shm_slots->slots,aux);
-    printf("Mudei para emergencia\n");
+    sem_wait(sem_log);
+    log_emergency_landing(f_log,msq.code);
+    sem_post(sem_log);
   }
-
 }
 
 void* update_fuel(void* id){
@@ -358,6 +361,28 @@ void* update_fuel(void* id){
   }
 }
 
+void arrive(char* code,char* pista,int slot){
+  p_slot aux=find(shm_slots->slots,slot);
+  aux->finish=1;
+  sem_wait(sem_log);
+  log_landing(f_log,code,pista);
+  sem_post(sem_log);
+}
+
+void holding(char* code,int slot){
+  int random;
+  srand(time(0));
+  p_slot aux=find(shm_slots->slots,slot);
+  random=rand()%(configurations->hld_max - hld_min + 1)) + hld_min;
+  aux->holding=random;
+  aux->ETA+=random;
+  aux->priority+=random;
+  reorder(shm_slots->slots);
+  sem_wait(sem_log);
+  log_holding(f_log,aux->code,random);
+  sem_post(sem_log);
+}
+
 void urgencias(){
   int valueL,valueR;
   int time_passed;
@@ -374,31 +399,27 @@ void urgencias(){
         sem_getvalue(sem_28L,&valueR);
         if(valueL==1){
           sem_wait(sem_28L);
-          //função para aterrar
+          arrive(aux_emergency->code,"28L",aux_emergency->slot);
           sem_post(sem_28L);
         }
         else if(valueR==1){
           sem_wait(sem_28R);
-          //função para aterrar
+          arrive(aux_emergency->code,"28R",aux_emergency->slot);
           sem_post(sem_28R);
         }
         else{
-          //função para holding
+          holding(aux_emergency->code,aux_emergency->slot)
         }
         sem_post(sem_pistas);
       }
       else{
-        //função holding
+        holding(aux_emergency->code,aux_emergency->slot)
       }
     }
   }
 }
 
-void arrive(int slot){
-
-}
-
-void* departures_arrivals(void* id){
+void* departures_arrivals(void* id){//falta acabar muito disto
   int time_passed,valueL,valueR;
   time_t time_now;
   p_slot aux_slot;
@@ -454,7 +475,7 @@ void TorreControlo(){
       //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq.msgtype=SLOT;
       count++;
-      add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0);
+      add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.code);
       msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
       msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }

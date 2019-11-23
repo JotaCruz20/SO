@@ -126,7 +126,7 @@ p_slot create_list_slot(void){
     return aux;
 }
 
-p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected){
+p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code){
     p_slot b4_insert_place;
     p_slot aux = (p_slot) malloc(sizeof(flight_slot));
     aux->slot=slot;
@@ -136,6 +136,7 @@ p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,in
     aux->holding=holding;
     aux->finish=finished;
     aux->redirected=redirected;
+    strcpy(aux->code,code);
     if(eta>takeoff){
       aux->priority=eta;
     }
@@ -198,6 +199,21 @@ void remove_first_slot(p_slot head){
     p_slot aux=head->next;
     head->next =head->next->next;
     free (aux);
+}
+
+void reorder(p_slot head){
+  p_slot aux;
+  p_slot after;
+  p_slot buffer;
+  for(aux=head->next;aux->next!=NULL;aux=aux->next){
+    for(after=aux->next;after->next!=NULL;after=after->next){
+      if(after->priority < aux->priority){
+        buffer = aux;
+        aux = after;
+        after= buffer;
+      }
+    }
+  }
 }
 
 p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slot emergency_flight){

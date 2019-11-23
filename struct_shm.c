@@ -158,29 +158,6 @@ void log_departure(FILE *f,char* flight,char* track,char state){
   }
 }
 
-void log_landing(FILE *f,char* flight,char* track,char state){
-  char* stime = current_time();
-
-  if(state=='s'){
-    printf("%s %s LANDING %s started\n",stime,flight,track);
-    fprintf(f,"%s %s LANDING => %s started\n",stime,flight,track);
-    fflush(f);
-  }
-  else{
-    printf("%s %s LANDING %s concluded\n",stime, flight, track);
-    fprintf(f,"%s %s LANDING %s concluded\n",stime, flight, track);
-    fflush(f);
-  }
-}
-
-void log_leaving(FILE *f,char* flight){
-  char* stime = current_time();
-
-  printf("%s %s LEAVING TO OTHER AIRPORT => FUEL = 0 \n",stime,flight);
-  fprintf(f,"%s %s LEAVING TO OTHER AIRPORT => FUEL = 0\n",stime,flight);
-  fflush(f);
-}
-
 void log_emergency_landing(FILE *f,char* flight){
   char* stime = current_time();
 
@@ -194,6 +171,20 @@ void log_holding(FILE *f,char* flight,int time_holding){
 
   printf("%s %s  HOLDING %d\n",stime,flight,time_holding);
   fprintf(f,"%s %s  HOLDING %d\n",stime,flight,time_holding);
+  fflush(f);
+}
+
+void log_redirected(FILE *f,char* flight,int fuel){
+  char* stime = current_time();
+  printf("%s %s LEAVING TO OTHER AIRPORT => FUEL = %d\n",stime,flight,fuel);
+  fprintf(f,"%s %s LEAVING TO OTHER AIRPORT => FUEL = %d\n",stime,flight,fuel);
+  fflush(f);
+}
+
+void log_landing(FILE *f,char* flight,char* pista){
+  char* stime = current_time();
+  printf("%s %s LANDING %s started\n",stime,flight,pista);
+  fprintf(f,"%s %s LANDING %s started\n",stime,flight,pista);
   fflush(f);
 }
 

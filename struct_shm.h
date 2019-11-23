@@ -38,10 +38,6 @@ typedef struct{
   int fuel;
   //sending
   flight_slot slot;
-  //hold
-  int hold;
-  //redirecte
-  int redirect;
 }msq_flights;
 
 //statistics functions**********************************************************
@@ -55,11 +51,11 @@ int verify_fuel(int fuel,int eta,int init);
 int verify_init(int init,Sta_time* shared_var_sta_time,p_config configuration);
 int verify_takeoff(int init,Sta_time* shared_var_sta_time,p_config configuration);
 void log_departure(FILE *f,char* flight,char* track,char state);
-void log_landing(FILE *f,char* flight,char* track,char state);
-void log_leaving(FILE *f,char* flight);
 void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 void log_segint(FILE *f,char* s);
+void log_redirected(FILE *f,char* flight,int fuel);
+void log_landing(FILE *f,char* flight,char* pista);
 
 //config functions
 p_config inicia(char*);

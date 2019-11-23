@@ -14,9 +14,9 @@ typedef struct c_node{
 
 typedef struct s_node* p_slot;
 typedef struct s_node{
-  int priority,slot;//para todos
+  int priority,slot,finish;//para todos
   int takeoff;//para leaving flights
-  int fuel,eta,holding;//para coming flights
+  int fuel,eta,holding,redirected;//para coming flights
   p_slot next;
 }flight_slot;
 
@@ -44,7 +44,7 @@ void remove_first_leaving_flight(p_leaving_flight head);
 //*****************************SLOTS********************************************
 
 p_slot create_list_slot(void);
-p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta);
+p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected);
 p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta);
 p_slot search_place_to_insert_slot_priority(p_slot slot,int takeoff);
 p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slot emergency_flight);

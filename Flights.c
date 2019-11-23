@@ -126,13 +126,16 @@ p_slot create_list_slot(void){
     return aux;
 }
 
-p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta){
+p_slot add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected){
     p_slot b4_insert_place;
     p_slot aux = (p_slot) malloc(sizeof(flight_slot));
     aux->slot=slot;
     aux->eta=eta;
     aux->fuel=fuel;
     aux->takeoff=takeoff;
+    aux->holding=holding;
+    aux->finish=finished;
+    aux->redirected=redirected;
     if(eta>takeoff){
       aux->priority=eta;
     }

@@ -30,7 +30,7 @@ Sta_time* shared_var_stat_time;//shared memory
 str_slots* shm_slots;
 pid_t child;//id child
 sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas;//id sems
-pthread_t threads_functions[3];//id da thread que cria threads
+pthread_t threads_functions[4];//id da thread que cria threads
 pthread_t *threads_coming,*threads_leaving;//array dos ids threads
 FILE* f_log;
 p_config configurations;
@@ -48,9 +48,9 @@ void initialize_MSQ(){
 
 //******************************SIGNALS*****************************************
 
-void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-  char message[7000],code[70];
+void terminate(){
   int i,counter=0,nbits;
+  char message[7000],code[6];
   nbits=read(fd_pipe,message,sizeof(message));
   close(fd_pipe);
   if(nbits > 0){
@@ -86,6 +86,9 @@ void terminate(){//acabar terminateeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 	}
   for(i=0;i<counter_threads_leaving;i++){
     pthread_join(threads_leaving[i],NULL);
+	}
+  for(i=0;i<4;i++){
+    pthread_join(threads_functions[i],NULL);
 	}
   kill(0, SIGTERM);
   exit(0);
@@ -448,6 +451,7 @@ void* departures_arrivals(void* id){
     time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     aux_slot=shm_slots->slots->next;
+    urgencias();
     if (aux_slot->next!=NULL){
       if(aux_slot->priority>=time_passed){
         if(aux_slot->next->priority>=time_passed && aux_slot->type==aux_slot->next->type){
@@ -510,10 +514,10 @@ void* departures_arrivals(void* id){
             }
             sem_post(sem_pistas);
           }
-          else{
-            if(aux_slot->type=='c'){
-              holding(aux_slot->code,aux_slot->slot);
-              holding(aux_slot->next->code,aux_slot->next->slot);
+        else{
+          if(aux_slot->type=='c'){
+            holding(aux_slot->code,aux_slot->slot);
+            holding(aux_slot->next->code,aux_slot->next->slot);
           }
         }
       }
@@ -524,46 +528,46 @@ void* departures_arrivals(void* id){
             sem_getvalue(sem_28L,&valueL);
             sem_getvalue(sem_28R,&valueR);
             if(valueL==1){
-              sem_wait(sem_28L);
-              arrive(aux_slot->slot,"L");
-              sem_post(sem_28L);
-              remove_first_slot(shm_slots->slots);
+                sem_wait(sem_28L);
+                arrive(aux_slot->slot,"L");
+                sem_post(sem_28L);
+                remove_first_slot(shm_slots->slots);
+              }
+              else if(valueR==1){
+                sem_wait(sem_28R);
+                arrive(aux_slot->slot,"R");
+                sem_post(sem_28R);
+                remove_first_slot(shm_slots->slots);
+              }
             }
-            else if(valueR==1){
-              sem_wait(sem_28R);
-              arrive(aux_slot->slot,"R");
-              sem_post(sem_28R);
-              remove_first_slot(shm_slots->slots);
+            else{
+              sem_getvalue(sem_01L,&valueL);
+              sem_getvalue(sem_01R,&valueR);
+              if(valueL==1){
+                sem_wait(sem_01L);
+                departure(aux_slot->slot,"L");
+                sem_post(sem_01L);
+                remove_first_slot(shm_slots->slots);
+              }
+              else if(valueR==1){
+                sem_wait(sem_01R);
+                arrive(aux_slot->slot,"R");
+                sem_post(sem_01R);
+                remove_first_slot(shm_slots->slots);
+              }
             }
+            sem_post(sem_pistas);
           }
           else{
-            sem_getvalue(sem_01L,&valueL);
-            sem_getvalue(sem_01R,&valueR);
-            if(valueL==1){
-              sem_wait(sem_01L);
-              departure(aux_slot->slot,"L");
-              sem_post(sem_01L);
-              remove_first_slot(shm_slots->slots);
+            if(aux_slot->type=='c'){
+              holding(aux_slot->code,aux_slot->slot);
+              holding(aux_slot->next->code,aux_slot->next->slot);
             }
-            else if(valueR==1){
-              sem_wait(sem_01R);
-              arrive(aux_slot->slot,"R");
-              sem_post(sem_01R);
-              remove_first_slot(shm_slots->slots);
-            }
-          }
-          sem_post(sem_pistas);
-        }
-        else{
-          if(aux_slot->type=='c'){
-            holding(aux_slot->code,aux_slot->slot);
-            holding(aux_slot->next->code,aux_slot->next->slot);
           }
         }
       }
     }
   }
-}
 }
 
 void TorreControlo(){
@@ -574,11 +578,11 @@ void TorreControlo(){
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
   fflush(f_log);
   pthread_create(&threads_functions[1],NULL,receive_msq_urgency,NULL);
+  pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
   pthread_create(&threads_functions[2],NULL,update_fuel,NULL);
-  //pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
   while(1){
       msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
-      //printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
+      printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
       msq.msgtype=SLOT;
       count++;
       add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.code,msq.type);

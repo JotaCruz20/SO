@@ -181,10 +181,31 @@ void log_redirected(FILE *f,char* flight,int fuel){
   fflush(f);
 }
 
-void log_landing(FILE *f,char* flight,char* pista){
+void log_begin_landing(FILE *f,char* flight,char* pista){
   char* stime = current_time();
   printf("%s %s LANDING %s started\n",stime,flight,pista);
   fprintf(f,"%s %s LANDING %s started\n",stime,flight,pista);
+  fflush(f);
+}
+
+void log_end_landing(FILE *f,char* flight,char* pista){
+  char* stime = current_time();
+  printf("%s %s LANDING %s concluded\n",stime,flight,pista);
+  fprintf(f,"%s %s LANDING %s concluded\n",stime,flight,pista);
+  fflush(f);
+}
+
+void log_begin_Departure(FILE *f,char* flight,char* pista){
+  char* stime = current_time();
+  printf("%s %s DEPARTURE %s concluded\n",stime,flight,pista);
+  fprintf(f,"%s %s DEPARTURE %s concluded\n",stime,flight,pista);
+  fflush(f);
+}
+
+void log_end_Departure(FILE *f,char* flight,char* pista){
+  char* stime = current_time();
+  printf("%s %s DEPARTURE %s concluded\n",stime,flight,pista);
+  fprintf(f,"%s %s DEPARTURE %s concluded\n",stime,flight,pista);
   fflush(f);
 }
 

@@ -33,7 +33,8 @@ typedef struct{
 typedef struct{
   //receiving
   long msgtype;
-  char[6] code;
+  char code[6];
+  char type;
   int takeoff;
   int ETA;
   int fuel;
@@ -56,7 +57,10 @@ void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 void log_segint(FILE *f,char* s);
 void log_redirected(FILE *f,char* flight,int fuel);
-void log_landing(FILE *f,char* flight,char* pista);
+void log_begin_landing(FILE *f,char* flight,char* pista);
+void log_end_landing(FILE *f,char* flight,char* pista);
+void log_begin_Departure(FILE *f,char* flight,char* pista);
+void log_end_Departure(FILE *f,char* flight,char* pista);
 
 //config functions
 p_config inicia(char*);

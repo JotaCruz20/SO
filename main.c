@@ -154,7 +154,7 @@ void* cthreads_leaving(void* flight){
   fflush(f_log);
   msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
   this_flight=find(shm_slots->slots,msq.slot.slot);
   while(this_flight->finish!=1){
     ;
@@ -179,7 +179,6 @@ void try_fuel(int fuel,int eta,flight_slot flight){
   }
   msq.msgtype=URGENCY;
   msq.slot=flight;
-  printf("Fiquei sem fuel suficiente vou para modo urgencia %d %d\n",fuel,eta);
   msgsnd(msqid_flights,&msq,sizeof(msq_flights)- sizeof(long),0);
 }
 
@@ -202,8 +201,7 @@ void* cthreads_coming(void* flight){
   fflush(f_log);
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
-  printf("%s tentando o fuel\n",code );
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
   try_fuel(msq.slot.fuel,msq.slot.eta,msq.slot);
   this_flight=find(shm_slots->slots,msq.slot.slot);
   while(this_flight->finish!=1){
@@ -450,7 +448,7 @@ void* departures_arrivals(void* id){
   while (1) {
     time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-    aux_slot=shm_slots->slots->next;
+    aux_slot=shm_slots->slots;
     urgencias();
     if (aux_slot->next!=NULL){
       if(aux_slot->priority>=time_passed){
@@ -578,16 +576,15 @@ void TorreControlo(){
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
   fflush(f_log);
   pthread_create(&threads_functions[1],NULL,receive_msq_urgency,NULL);
-  pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
   pthread_create(&threads_functions[2],NULL,update_fuel,NULL);
+  pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
   while(1){
-      msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
-      printf("Recebi mensagem %d %d %d\n", msq.ETA,msq.fuel,msq.takeoff);
-      msq.msgtype=SLOT;
-      count++;
-      add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.code,msq.type);
-      msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
-      msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
+    msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
+    msq.msgtype=SLOT;
+    count++;
+    add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.code,msq.type);
+    msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
+    msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }
 }
 

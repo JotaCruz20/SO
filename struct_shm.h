@@ -33,7 +33,6 @@ typedef struct{
 typedef struct{
   //receiving
   long msgtype;
-  char code[6];
   char type;
   int takeoff;
   int ETA;

@@ -30,7 +30,7 @@ Sta_time* shared_var_stat_time;//shared memory
 str_slots* shm_slots;
 pid_t child;//id child
 sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas;//id sems
-pthread_t threads_functions[4];//id da thread que cria threads
+pthread_t threads_functions[5];//id da thread que cria threads
 pthread_t *threads_coming,*threads_leaving;//array dos ids threads
 FILE* f_log;
 p_config configurations;
@@ -87,7 +87,7 @@ void terminate(){
   for(i=0;i<counter_threads_leaving;i++){
     pthread_join(threads_leaving[i],NULL);
 	}
-  for(i=0;i<4;i++){
+  for(i=0;i<5;i++){
     pthread_join(threads_functions[i],NULL);
 	}
   kill(0, SIGTERM);
@@ -147,7 +147,7 @@ void* cthreads_leaving(void* flight){
   msq.fuel=0;
   msq.takeoff=my_flight.takeoff;
   msq.type='l';
-  strcpy(msq.code,my_flight.flight_code);
+  strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
   printf("%s DEPARTURE %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
@@ -171,15 +171,24 @@ void* cthreads_leaving(void* flight){
   exit(0);
 }
 
-void try_fuel(int fuel,int eta,flight_slot flight){
+void* try_fuel(void* id){
   msq_flights msq;
-  while(fuel>4+eta+configurations->L){
+  p_slot slot_test;
+  while(1){
+    slot_test=shm_slots->slots;
+    while(slot_test->next!=NULL){
+      if(slot_test->type=='c'){
+        slot_test->fuel-=1;
+      }
+      if(slot_test->fuel==4+slot_test->eta+configurations->T && slot_test->type=='c'){
+        strcpy(msq.slot.code,slot_test->code);
+        msq.slot.slot=slot_test->slot;
+        msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
+      }
+      slot_test=slot_test->next;
+    }
     usleep(configurations->ut*1000);
-    fuel-=1;
   }
-  msq.msgtype=URGENCY;
-  msq.slot=flight;
-  msgsnd(msqid_flights,&msq,sizeof(msq_flights)- sizeof(long),0);
 }
 
 void* cthreads_coming(void* flight){
@@ -194,7 +203,7 @@ void* cthreads_coming(void* flight){
   msq.fuel=my_flight.fuel;
   msq.takeoff=0;
   msq.type='c';
-  strcpy(msq.code,my_flight.flight_code);
+  strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
   printf("%s ARRIVAL %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
@@ -202,7 +211,6 @@ void* cthreads_coming(void* flight){
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
   printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
-  try_fuel(msq.slot.fuel,msq.slot.eta,msq.slot);
   this_flight=find(shm_slots->slots,msq.slot.slot);
   while(this_flight->finish!=1){
     if(this_flight->holding!=0){
@@ -262,7 +270,10 @@ void* thread_creates_threads(void* id){
 
 void initialize_thread_create(){
   if(pthread_create(&threads_functions[0],NULL,thread_creates_threads,NULL)!=0){
-    perror("error in pthread_create coming!");
+    perror("error in pthread_create_threads!");
+  }
+  if(pthread_create(&threads_functions[1],NULL,try_fuel,NULL)!=0){
+    perror("error in pthread_try_fuel!");
   }
 }
 
@@ -356,7 +367,7 @@ void* receive_msq_urgency(void* id){
     aux=find(shm_slots->slots,msq.slot.slot);
     change_to_emergency(shm_slots->urgency,shm_slots->slots,aux);
     sem_wait(sem_log);
-    log_emergency_landing(f_log,msq.code);
+    log_emergency_landing(f_log,msq.slot.code);
     sem_post(sem_log);
   }
 }
@@ -367,10 +378,10 @@ void* update_fuel(void* id){
     slot_test=shm_slots->slots;
     usleep(configurations->ut*1000);
     while(slot_test->next!=NULL){
-      if(slot_test->fuel!=0){
+      if(slot_test->fuel!=0 && slot_test->type=='c'){
         slot_test->fuel-=1;
       }
-      if(slot_test->fuel==0 && slot_test->eta!=0){
+      if(slot_test->fuel==0 && slot_test->type=='c'){
         slot_test->redirected=1;
       }
       slot_test=slot_test->next;
@@ -575,14 +586,14 @@ void TorreControlo(){
   printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
   fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
   fflush(f_log);
-  pthread_create(&threads_functions[1],NULL,receive_msq_urgency,NULL);
-  pthread_create(&threads_functions[2],NULL,update_fuel,NULL);
-  pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL);
+  pthread_create(&threads_functions[2],NULL,receive_msq_urgency,NULL);
+  pthread_create(&threads_functions[3],NULL,update_fuel,NULL);
+  pthread_create(&threads_functions[4],NULL,departures_arrivals,NULL);
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
     msq.msgtype=SLOT;
     count++;
-    add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.code,msq.type);
+    add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type);
     msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
     msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }
@@ -601,8 +612,8 @@ int main(){
   initialize_MSQ();
   initialize_pipe();
   initialize_shm();
-  initialize_thread_create();
   initialize_flights();
+  initialize_thread_create();
   if(fork()==0){
     TorreControlo();
     exit(0);

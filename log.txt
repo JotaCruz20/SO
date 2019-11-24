@@ -1,14 +1,10 @@
-13:38:49 Torre de Controlo criada,pid:7595
-13:38:50 WRONG COMMAND => DEPARTURE TP1 init: 0 takeoff: 100
-13:38:50 NEW COMMAND => ARRIVAL TP2 init: 10 eta: 15 fuel: 20
-13:38:50 NEW COMMAND => ARRIVAL TP3 init: 15 eta: 60 fuel: 1500
-13:38:50 NEW COMMAND => DEPARTURE TP4 init: 20 takeoff: 60
-13:38:50 NEW COMMAND => ARRIVAL TP5 init: 20 eta: 100 fuel: 10000
-13:38:50 NEW COMMAND => DEPARTURE TP6 init: 30 takeoff: 50
-13:38:50 NEW COMMAND => DEPARTURE TP7 init: 35 takeoff: 50
-13:38:54 ARRIVAL => TP2 created
-13:38:57 ARRIVAL => TP3 created
-13:38:59 ARRIVAL => TP5 created
-13:38:59 DEPARTURE => TP4 created
-13:39:4 DEPARTURE => TP6 created
-13:39:7 DEPARTURE => TP7 created
+20:0:49 Torre de Controlo criada,pid:5006
+20:0:51 WRONG COMMAND => DEPARTURE TP1 init: 0 takeoff: 100
+20:0:51 NEW COMMAND => ARRIVAL TP2 init: 10 eta: 15 fuel: 20
+20:0:51 NEW COMMAND => ARRIVAL TP3 init: 15 eta: 60 fuel: 1500
+20:0:51 NEW COMMAND => DEPARTURE TP4 init: 20 takeoff: 60
+20:0:51 NEW COMMAND => ARRIVAL TP5 init: 20 eta: 100 fuel: 10000
+20:0:51 NEW COMMAND => DEPARTURE TP6 init: 30 takeoff: 50
+20:0:51 NEW COMMAND => DEPARTURE TP7 init: 35 takeoff: 50
+20:0:54 ARRIVAL => TP2 created
+20:1:18 ARRIVAL => TP3 created

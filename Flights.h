@@ -53,3 +53,4 @@ p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slo
 p_slot find(p_slot head,int slot);
 void reorder(p_slot head);
 void remove_first_slot(p_slot head);
+void print_list(p_slot head);

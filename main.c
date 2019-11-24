@@ -149,12 +149,15 @@ void* cthreads_leaving(void* flight){
   msq.type='l';
   strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
+  sem_wait(sem_log);
   printf("%s DEPARTURE %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s DEPARTURE => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
+  sem_post(sem_log);
   msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  print_list(shm_slots->slots);
   this_flight=find(shm_slots->slots,msq.slot.slot);
   while(this_flight->finish!=1){
     ;
@@ -176,13 +179,19 @@ void* try_fuel(void* id){
   p_slot slot_test;
   while(1){
     slot_test=shm_slots->slots;
+    print_list(shm_slots->slots);
+    print_list(slot_test);
     while(slot_test->next!=NULL){
+      printf("%s %c\n",slot_test->code,slot_test->type);
       if(slot_test->type=='c'){
         slot_test->fuel-=1;
+        printf("%s %d\n",slot_test->code,slot_test->fuel );
       }
       if(slot_test->fuel==4+slot_test->eta+configurations->T && slot_test->type=='c'){
         strcpy(msq.slot.code,slot_test->code);
         msq.slot.slot=slot_test->slot;
+        msq.msgtype=URGENCY;
+        printf("%s Urgencia needed\n", msq.slot.code);
         msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
       }
       slot_test=slot_test->next;
@@ -205,12 +214,15 @@ void* cthreads_coming(void* flight){
   msq.type='c';
   strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
+  sem_wait(sem_log);
   printf("%s ARRIVAL %s created\n",stime,my_flight.flight_code);
   fprintf(f_log,"%s ARRIVAL => %s created\n",stime,my_flight.flight_code);
   fflush(f_log);
+  sem_post(sem_log);
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot.slot,msq.slot.priority,msq.slot.takeoff,msq.slot.fuel,msq.slot.eta);
+  print_list(shm_slots->slots);
   this_flight=find(shm_slots->slots,msq.slot.slot);
   while(this_flight->finish!=1){
     if(this_flight->holding!=0){
@@ -337,8 +349,6 @@ void initialize_shm(){
     perror("error in shmat with Sta_log_time");
     exit(1);
   }
-  shm_slots->slots=create_list_slot();
-  shm_slots->urgency=create_list_slot();
   shared_var_stat_time->time_init=time(NULL);
 }
 
@@ -373,10 +383,20 @@ void* receive_msq_urgency(void* id){
 }
 
 void* update_fuel(void* id){
-  p_slot slot_test;
+  p_slot slot_test,slot_test_urgency;
   while(1){
     slot_test=shm_slots->slots;
+    slot_test_urgency=shm_slots->urgency;
     usleep(configurations->ut*1000);
+    while(slot_test_urgency->next!=NULL){
+      if(slot_test_urgency->fuel!=0 && slot_test_urgency->type=='c'){
+        slot_test_urgency->fuel-=1;
+      }
+      if(slot_test->fuel==0 && slot_test->type=='c'){
+        slot_test_urgency->redirected=1;
+      }
+      slot_test_urgency=slot_test_urgency->next;
+    }
     while(slot_test->next!=NULL){
       if(slot_test->fuel!=0 && slot_test->type=='c'){
         slot_test->fuel-=1;
@@ -594,6 +614,7 @@ void TorreControlo(){
     msq.msgtype=SLOT;
     count++;
     add_slot(shm_slots->slots,count,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type);
+    //print_list(shm_slots->slots);
     msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,count);
     msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }
@@ -607,11 +628,11 @@ int main(){
   char *token;
   f_log=fopen("log.txt","w");
   configurations=inicia("config.txt");
+  initialize_shm();
   initialize_semaphores();
-  initialize_signals();
+  //initialize_signals();
   initialize_MSQ();
   initialize_pipe();
-  initialize_shm();
   initialize_flights();
   initialize_thread_create();
   if(fork()==0){

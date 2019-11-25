@@ -117,137 +117,80 @@ void remove_first_leaving_flight(p_leaving_flight head){
 
 //******************************Slot Functions**********************************
 
-p_slot create_list_slot(void){
-    p_slot aux;
-    aux = (p_slot) malloc(sizeof(flight_slot));
-    if(aux != NULL){
-        aux->next = NULL;
-    }
-    return aux;
-}
-
-void add_slot(p_slot head,int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type){
-    p_slot b4_insert_place;
-    p_slot aux = (p_slot) malloc(sizeof(flight_slot));
-    aux->slot=slot;
-    aux->eta=eta;
-    aux->fuel=fuel;
-    aux->takeoff=takeoff;
-    aux->holding=holding;
-    aux->finish=finished;
-    aux->redirected=redirected;
-    aux->type=type;
-    strcpy(aux->code,code);
+flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type){
+    flight_slot aux;
+    aux.slot=slot;
+    aux.eta=eta;
+    aux.fuel=fuel;
+    aux.takeoff=takeoff;
+    aux.holding=holding;
+    aux.finish=finished;
+    aux.redirected=redirected;
+    aux.type=type;
+    strcpy(aux.code,code);
     if(eta>takeoff){
-      aux->priority=eta;
+      aux.priority=eta;
     }
     else{
-      aux->priority=takeoff;
+      aux.priority=takeoff;
     }
-    b4_insert_place= search_place_to_insert_slot_ETA(head,aux->priority);
-    aux->next=b4_insert_place->next;
-    b4_insert_place->next=aux;
     return aux;
 }
 
-p_slot search_place_to_insert_slot_ETA(p_slot slot,int eta){
-  p_slot current=slot;
-  p_slot next;
-  if(current->next!=NULL){
-    next=current->next;
-    while(next->next!=NULL){
-        if(current->eta<=eta && next->eta>=eta){
-            return current;
-        }
-        current=next;
-        next=next->next;
-    }
-    return next;
-  }
-  else{
-    return current;
-  }
-}
-
-p_slot search_place_to_insert_slot_priority(p_slot head,int priority){
-  p_slot current=head;
-  p_slot next;
-  if(current->next!=NULL){
-    next=current->next;
-    while(next->next!=NULL){
-        if(current->takeoff<=priority && next->takeoff>=priority){
-            return current;
-        }
-        current=next;
-        next=next->next;
-    }
-    return next;
-  }
-  else{
-    return current;
-  }
-}
-
-p_slot find(p_slot head,int slot){
-  p_slot current=head;
-  p_slot next;
-  if(current->next!=NULL){
-    next=current->next;
-    while(next->next!=NULL){
-        if(current->slot==slot){
-            return current;
-        }
-        current=next;
-        next=next->next;
-    }
-    return next;
-  }
-  else{
-    return current;
-  }
-}
-
-void remove_first_slot(p_slot head){
-    p_slot aux=head->next;
-    head->next =head->next->next;
-    free (aux);
-}
-
-void reorder(p_slot head){
-  p_slot aux;
-  p_slot after;
-  p_slot buffer;
-  for(aux=head->next;aux->next!=NULL;aux=aux->next){
-    for(after=aux->next;after->next!=NULL;after=after->next){
-      if(after->priority < aux->priority){
-        buffer = aux;
-        aux = after;
-        after= buffer;
+void reorder_ETA(p_slot slot,int count){
+  int i,j;
+  flight_slot buffer;
+  for(i=0;i<count;i++){
+    for(j=0;j<i;j++){
+      if(slot[i].eta< slot[j].priority){
+        buffer=slot[i];
+        slot[i] = slot[j];
+        slot[j]= buffer;
       }
     }
   }
 }
 
-p_slot change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, p_slot emergency_flight){
-  p_slot ant=flight_slot_head,current=flight_slot_head->next;
-  p_slot ant_emergency=search_place_to_insert_slot_ETA(emergency_head,emergency_flight->eta);
-  while(current!=NULL){
-    if(current==emergency_flight){
-      ant->next=current->next;
-      break;
+int find(p_slot head,int slot,int count){
+  int i;
+  for(i=0;i<count;i++){
+    if(head[i].slot==slot){
+      return i;
     }
-    current=current->next;
-    ant=ant->next;
   }
-  emergency_flight->next=ant_emergency->next;
-  ant_emergency->next=emergency_flight;
-  return emergency_flight;
+  return -1;
 }
 
-void print_list(p_slot head){
-  p_slot aux=head;
-  while(aux->next!=NULL){
-    printf("%s\n",aux->code);
-    aux=aux->next;
+void remove_slot(p_slot head,int slot){
+  int i;
+  for (i = slot - 1; i < slot - 1; i++){
+    head[i] = head[i+1];
+  }
+}
+
+void reorder_priority(p_slot slot,int count){
+  int i,j;
+  flight_slot buffer;
+  for(i=0;i<count;i++){
+    for(j=0;j<i;j++){
+      if(slot[i].priority< slot[j].priority){
+        buffer=slot[i];
+        slot[i] = slot[j];
+        slot[j]= buffer;
+      }
+    }
+  }
+}
+
+void change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, flight_slot emergency_flight,int count_emergency){
+  flight_slot emergency=add_slot(emergency_flight.slot,emergency_flight.takeoff,emergency_flight.fuel,emergency_flight.eta,emergency_flight.holding,emergency_flight.finish,emergency_flight.redirected,emergency_flight.code,emergency_flight.type);
+  remove_slot(flight_slot_head,emergency_flight.slot+1);//tenho de mudar este
+  emergency_head[count_emergency]=emergency;
+}
+
+void print_list(p_slot head,int count){
+  int i;
+  for(i=0;i<count;i++){
+    printf("%s\n",head[i].code);
   }
 }

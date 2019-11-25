@@ -19,7 +19,6 @@ typedef struct s_node{
   int priority,slot,finish;//para todos
   int takeoff;//para leaving flights
   int fuel,eta,holding,redirected;//para coming flights
-  p_slot next;
 }flight_slot;
 
 typedef struct{

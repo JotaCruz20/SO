@@ -172,9 +172,12 @@ void reorder_priority(p_slot slot,int count){
   int i,j;
   flight_slot buffer;
   for(i=0;i<count;i++){
-    for(j=0;j<i;j++){
-      if(slot[i].priority< slot[j].priority){
+    printf("%s %d i\n",slot[i].code,slot[i].priority );
+    for(j=0;j<count;j++){
+      printf("%s %d j\n",slot[j].code,slot[j].priority);
+      if(slot[i].priority<slot[j].priority){
         buffer=slot[i];
+        //printf("b:%d\n",buffer.priority);
         slot[i] = slot[j];
         slot[j]= buffer;
       }

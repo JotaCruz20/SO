@@ -412,7 +412,7 @@ void* receive_msq_urgency(void* id){
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
     aux=find(shm_slots->slots,msq.slot.slot,shm_slots->counter_slot);
-    change_to_emergency(shm_slots->urgency,shm_slots->slots,shm_slots->slots[aux],shm_slots->counter_urgency);
+    //change_to_emergency(shm_slots->urgency,shm_slots->slots,shm_slots->slots[aux],shm_slots->counter_urgency);
     shm_slots->counter_urgency++;
     sem_wait(sem_log);
     log_emergency_landing(f_log,msq.slot.code);
@@ -464,7 +464,7 @@ void holding(char* code,int slot){
   shm_slots->slots[aux].holding=random;
   shm_slots->slots[aux].eta+=random;
   shm_slots->slots[aux].priority+=random;
-  reorder_priority(shm_slots->slots,shm_slots->counter_slot);
+  //reorder_priority(shm_slots->slots,shm_slots->counter_slot);
 }
 
 void* urgencias(void* id){
@@ -663,7 +663,8 @@ void TorreControlo(){
     buffer=add_slot(shm_slots->counter_slot,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type);
     shm_slots->slots[shm_slots->counter_slot]=buffer;
     shm_slots->counter_slot++;
-    //print_list(shm_slots->slots);
+    reorder_priority(shm_slots->slots,shm_slots->counter_slot);
+    print_list(shm_slots->slots,shm_slots->counter_slot);
     msq.slot=fill_buffer(msq.takeoff,msq.fuel,msq.ETA,shm_slots->counter_slot);
     msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }

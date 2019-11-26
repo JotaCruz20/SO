@@ -46,9 +46,5 @@ void remove_first_leaving_flight(p_leaving_flight head);
 //*****************************SLOTS********************************************
 
 flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type);
-void reorder_ETA(p_slot slot,int count);
-void change_to_emergency(p_slot emergency_head, p_slot flight_slot_head, flight_slot emergency_flight,int count_emergency);
 int find(p_slot head,int slot,int count);
-void reorder_priority(p_slot head,int count);
-void remove_slot(p_slot head,int count);
 void print_list(p_slot head,int count);

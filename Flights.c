@@ -137,20 +137,6 @@ flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finis
     return aux;
 }
 
-void reorder_ETA(p_slot slot,int count){
-  int i,j;
-  flight_slot buffer;
-  for(i=0;i<count;i++){
-    for(j=0;j<i;j++){
-      if(slot[i].eta< slot[j].priority){
-        buffer=slot[i];
-        slot[i] = slot[j];
-        slot[j]= buffer;
-      }
-    }
-  }
-}
-
 int find(p_slot head,int slot,int count){
   int i;
   for(i=0;i<count;i++){

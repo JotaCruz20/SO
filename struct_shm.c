@@ -143,21 +143,6 @@ void log_segint(FILE *f,char* s){
 }
 
 
-void log_departure(FILE *f,char* flight,char* track,char state){
-  char* stime = current_time();
-
-  if(state=='s'){
-    printf("%s %s DEPARTURE %s started\n",stime,flight,track);
-    fprintf(f,"%s %s DEPARTURE => %s started\n",stime,flight,track);
-    fflush(f);
-  }
-  else{
-    printf("%s %s DEPARTURE %s concluded\n",stime, flight, track);
-    fprintf(f,"%s %s DEPARTURE %s concluded\n",stime, flight, track);
-    fflush(f);
-  }
-}
-
 void log_emergency_landing(FILE *f,char* flight){
   char* stime = current_time();
 

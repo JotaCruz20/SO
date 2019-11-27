@@ -37,6 +37,7 @@ typedef struct{
   int takeoff;
   int ETA;
   int fuel;
+  p_slot slot_buffer;
   //sending
   flight_slot slot;
 }msq_flights;
@@ -51,7 +52,6 @@ int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configur
 int verify_fuel(int fuel,int eta,int init);
 int verify_init(int init,Sta_time* shared_var_sta_time,p_config configuration);
 int verify_takeoff(int init,Sta_time* shared_var_sta_time,p_config configuration);
-void log_departure(FILE *f,char* flight,char* track,char state);
 void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 void log_segint(FILE *f,char* s);

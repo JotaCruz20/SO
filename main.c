@@ -150,7 +150,7 @@ void* cthreads_leaving(void* flight){
   msq.ETA=0;
   msq.fuel=0;
   msq.takeoff=my_flight.takeoff;
-  msq.type='l';
+  msq.type='d';
   strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
   sem_wait(sem_log);
@@ -173,12 +173,12 @@ void* try_fuel(void* flight){
   while(1){
     aux=list_slot_flight;
     if(aux!=NULL){
-      pthread_mutex_lock(&mutex_ll);
+      //pthread_mutex_lock(&mutex_ll);
       while(aux->next!=NULL){
-        if(aux->flight_slot->type=='c'){
+        if(aux->flight_slot->type=='a'){
           aux->flight_slot->fuel-=1;
         }
-        if(aux->flight_slot->fuel==4+aux->flight_slot->eta+configurations->T && aux->flight_slot->type=='c'){
+        if(aux->flight_slot->fuel==4+aux->flight_slot->eta+configurations->T && aux->flight_slot->type=='a'){
           strcpy(msq.slot.code,aux->flight_slot->code);
           msq.slot_buffer=aux->flight_slot;
           msq.msgtype=URGENCY;
@@ -186,7 +186,7 @@ void* try_fuel(void* flight){
           msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
         }
       }
-      //sem_post(sem_ll);
+      //pthread_mutex_unlock(&mutex_ll);
       usleep(configurations->ut*1000);
     }
   }
@@ -197,12 +197,7 @@ void* cthreads_coming(void* flight){
   int flagh=0;
   char* stime = current_time();
   p_slot slot_aux;
-  msq_flights msq;
-  msq.msgtype=FLIGHTS;
-  msq.ETA=my_flight.ETA;
-  msq.fuel=my_flight.fuel;
-  msq.takeoff=0;
-  msq.type='c';
+  msq_flights msq = {FLIGHTS,'a',0,my_flight.ETA,my_flight.fuel};
   strcpy(msq.slot.code,my_flight.flight_code);
   sem_wait(sem_log);
   printf("%s ARRIVAL %s created\n",stime,my_flight.flight_code);
@@ -364,16 +359,16 @@ void* update_fuel(void* id){
     aux=list_slot_flight;
     aux_urgency=list_slot_urgency_flight;
     while(aux_urgency->next!=NULL){
-      if(aux_urgency->flight_slot->fuel!=0 && aux_urgency->flight_slot->type=='c'){
+      if(aux_urgency->flight_slot->fuel!=0){
         aux_urgency->flight_slot->fuel--;
       }
-      if(aux_urgency->flight_slot->fuel!=0 && aux_urgency->flight_slot->type=='c'){
+      if(aux_urgency->flight_slot->fuel!=0){
         aux_urgency->flight_slot->redirected=1;
       }
       aux_urgency=aux_urgency->next;
     }
     while(aux->next!=NULL){
-      if(aux->flight_slot->fuel!=0 && aux->flight_slot->type=='c'){
+      if(aux->flight_slot->fuel!=0 && aux->flight_slot->type=='a'){
         aux->flight_slot->fuel--;
       }
       aux=aux->next;
@@ -450,7 +445,7 @@ void* urgencias(void* id){
     while(list_slot_urgency_flight->next==NULL){
       pthread_cond_wait(&cond_urg,&mutex_urg);
     }
-    pthread_mutex_lock(&mutex_ll);
+    //pthread_mutex_lock(&mutex_ll);
     time_t time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     aux=list_slot_urgency_flight;
@@ -481,7 +476,7 @@ void* urgencias(void* id){
         }
       }
     }
-    pthread_mutex_unlock(&mutex_ll);
+    //pthread_mutex_unlock(&mutex_ll);
   }
   exit(0);
 }
@@ -491,17 +486,27 @@ void* departures_arrivals(void* id){
   time_t time_now;
   p_list_slot aux;
   while(1){
-    aux=list_slot_flight;
     time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    pthread_mutex_lock(&mutex_ll);
+    //printf("%p\n",list_slot_flight->next);
+    if(list_slot_flight->next!=NULL){
+      //printf("the fuck bitch\n");
+      aux=list_slot_flight->next;
+    }
+    else{
+      //printf("ok\n");
+      aux=NULL;
+    }
     if(aux!=NULL){
+      //printf("entrei\n");
       while(aux->next!=NULL){
         if(aux->flight_slot->priority>=time_passed){
           if(aux->next->flight_slot->priority>=time_passed && aux->flight_slot->type==aux->next->flight_slot->type){
             sem_getvalue(sem_pistas,&valueL);
             if(valueL==1){
               sem_wait(sem_pistas);
-              if(aux->flight_slot->type=='c'){
+              if(aux->flight_slot->type=='a'){
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
                 if(valueL==1 && valueR==1){
@@ -550,7 +555,7 @@ void* departures_arrivals(void* id){
               sem_post(sem_pistas);
             }
           else{
-            if(aux->flight_slot->type=='c'){
+            if(aux->flight_slot->type=='a'){
               holding(aux->flight_slot->slot);
               holding(aux->next->flight_slot->slot);
             }
@@ -559,7 +564,7 @@ void* departures_arrivals(void* id){
         else{
           sem_getvalue(sem_pistas,&valueL);
           if(valueL==1){
-            if(aux->flight_slot->type=='c'){
+            if(aux->flight_slot->type=='a'){
               sem_getvalue(sem_28L,&valueL);
               sem_getvalue(sem_28R,&valueR);
               if(valueL==1){
@@ -590,15 +595,17 @@ void* departures_arrivals(void* id){
               sem_post(sem_pistas);
             }
             else{
-              if(aux->flight_slot->type=='c'){
+              if(aux->flight_slot->type=='a'){
                 holding(aux->flight_slot->slot);
                 holding(aux->next->flight_slot->slot);
               }
             }
           }
         }
+        aux=aux->next;
       }
     }
+    pthread_mutex_unlock(&mutex_ll);
   }
 }
 

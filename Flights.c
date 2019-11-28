@@ -212,19 +212,19 @@ p_list_slot find_slot(p_list_slot head,int slot){
 }
 
 void remove_slot(p_list_slot head,int slot){
-    p_list_slot ant=head;
-    p_list_slot current;
-    if(ant->next!=NULL){
-      current=ant->next;
-      while(ant->next!=NULL){
-          if(current->flight_slot->slot==slot){
-              ant->next=current->next;
-              free(current);
-          }
-          ant=ant->next;
-          current=current->next;
-      }
-    head->next=head->next->next;
-    free(current);
+  p_list_slot ant=head;
+  p_list_slot current;
+  if(ant->next!=NULL){
+    current=ant->next;
+    while(current->next!=NULL){
+    if(current->flight_slot->slot==slot){
+      ant->next=current->next;
+      free(current);
+    }
+    ant=current;
+    current=current->next;
+  }
+  head->next=head->next->next;
+  free(current);
   }
 }

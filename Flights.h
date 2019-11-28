@@ -15,7 +15,7 @@ typedef struct c_node{
 typedef struct s_node* p_slot;
 typedef struct s_node{
   char code[6];
-  char type,pista[1];
+  char type;
   int priority,slot,finish;//para todos
   int takeoff;//para leaving flights
   int fuel,eta,holding,redirected;//para coming flights

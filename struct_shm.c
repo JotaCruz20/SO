@@ -182,7 +182,7 @@ void log_end_landing(FILE *f,char* flight,char* pista){
 
 void log_begin_Departure(FILE *f,char* flight,char* pista){
   char* stime = current_time();
-  printf("%s %s DEPARTURE %s concluded\n",stime,flight,pista);
+  printf("%s %s DEPARTURE %s started\n",stime,flight,pista);
   fprintf(f,"%s %s DEPARTURE %s concluded\n",stime,flight,pista);
   fflush(f);
 }

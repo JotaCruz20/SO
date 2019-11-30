@@ -223,27 +223,17 @@ int remove_slot(p_list_slot head,int slot){
   return 0;
 }
 
-int change_slot_priority(p_list_slot head,p_list_slot slot){
-  p_list_slot ant=head;
-  p_list_slot current=head->next;
-  while(strcmp(current->flight_slot->code,slot->flight_slot->code)!=0 || current!=NULL){
-    ant=current;
-    current=current->next;
-  }
-  if(current==NULL){
-    return 0;
-  }
-  ant->next=current->next;
-  current=current->next;
-  slot->next=NULL;
-
-  while(current->next!=NULL){
-    if (ant->flight_slot->priority<slot->flight_slot->priority  && current->flight_slot->priority>slot->flight_slot->priority){
-    ant->next=slot;
-    slot->next=current;
-    return 1;
+void reorder(p_list_slot head){
+  p_list_slot aux;
+  p_list_slot after;
+  p_list_slot buffer;
+  for(aux=head->next;aux->next!=NULL;aux=aux->next){
+    for(after=aux->next;after->next!=NULL;after=after->next){
+      if(after->flight_slot->priority < aux->flight_slot->priority){
+        buffer = aux;
+        aux = after;
+        after= buffer;
+      }
     }
-    ant=ant->next;
-    current=current->next;
   }
 }

@@ -57,4 +57,4 @@ p_list_slot search_place_to_insert_slot(p_list_slot head,int priority);
 void remove_first_slot(p_list_slot head);
 int remove_slot(p_list_slot head,int slot);
 p_list_slot find_slot(p_list_slot head,int slot);
-void bubble_sort_priority(p_list_slot head);
+int change_slot_priority(p_list_slot head,p_list_slot slot);

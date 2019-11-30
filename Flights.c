@@ -137,8 +137,6 @@ flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finis
     return aux;
 }
 
-
-
 void print_list(p_slot head,int count){
   int i;
   for(i=0;i<count;i++){
@@ -187,44 +185,56 @@ p_list_slot search_place_to_insert_slot(p_list_slot head,int priority){
 
 void remove_first_slot(p_list_slot head){
     p_list_slot aux=head->next;
-    head->next =head->next->next;
-    free (aux);
+  if(aux->next!=NULL){
+      head->next=aux->next;
+    free(aux);
+  }
+  else{
+      head->next=NULL;
+  }
 }
 
 p_list_slot find_slot(p_list_slot head,int slot){
   p_list_slot current=head;
-  p_list_slot next;
-  if(current->next!=NULL){
-    next=current->next;
-    while(next->next!=NULL){
-        if(current->flight_slot->slot==slot){
-            return current;
-        }
-        current=next;
-        next=next->next;
+  while (current != NULL) {
+    if (current->flight_slot->slot == slot){
+      return(current);
     }
-    return next;
-  }
-  else{
-    return current;
+    current = current->next;
   }
   return NULL;
 }
 
-void remove_slot(p_list_slot head,int slot){
+int remove_slot(p_list_slot head,int slot){
   p_list_slot ant=head;
-  p_list_slot current;
+  p_list_slot next;
   if(ant->next!=NULL){
-    current=ant->next;
-    while(current->next!=NULL){
-    if(current->flight_slot->slot==slot){
-      ant->next=current->next;
-      free(current);
+    next=ant->next;
+    while(next->next!=NULL){
+      if(next->flight_slot->slot==slot){
+        ant->next=next->next;
+        free(next);
+        return 1;
+      }
+      ant=next;
+      next=next->next;
     }
-    ant=current;
-    current=current->next;
   }
-  head->next=head->next->next;
-  free(current);
+  return 0;
+}
+
+void bubble_sort_priority(p_list_slot head){
+  p_list_slot ant=head->next;
+  p_list_slot current=head->next->next;
+  p_list_slot antant=head;
+  while(current->next!=NULL){
+    if (ant->flight_slot->priority>current->flight_slot->priority){
+      antant->next=current;
+      current->next=ant;
+      ant->next=current->next;
+    }
+    antant=antant->next;
+    ant=ant->next;
+    current=current->next;
   }
 }

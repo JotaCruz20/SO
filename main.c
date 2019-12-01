@@ -29,7 +29,7 @@ int msqid_flights;//message queue ids
 Sta_time* shared_var_stat_time;//shared memory
 p_slot shm_slots;//shared memory
 pid_t pid_manager;//id child
-sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pistas_departure,*sem_ll;//id sems
+sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pistas_departure,*sem_ll,*sem_esta_time;//id sems
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_urg= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_urg= PTHREAD_COND_INITIALIZER;
@@ -47,7 +47,7 @@ p_list_slot list_slot_urgency_flight;
 void initialize_MSQ(){
   if((msqid_flights = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
     perror("Cant create message queue");
-    exit(0);
+    exit(-1);
   }
 }
 
@@ -102,12 +102,14 @@ void terminate(){
     sem_close(sem_01R);
     sem_close(sem_28L);
     sem_close(sem_28R);
+    sem_close(sem_esta_time);
     sem_unlink("LOG");
     sem_unlink("01L");
     sem_unlink("01R");
     sem_unlink("28R");
     sem_unlink("28L");
     sem_unlink("PISTAS");
+    sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
     pthread_mutex_destroy(&mutex_urg);
     printf("Closing semaphores ended\n");
@@ -120,12 +122,16 @@ void terminate(){
 }
 
 void sigusr1(){
-  update_statistic(shared_var_stat_time->statistics);
-  printf("Statistics:\n\n->Total created flights:%d\n\t->Total landed flights: %d\n\t->Average wait time to land: %f\n\t->Total departed flights: %d\n\t->Average wait time to depart: %f\n\t->Average number of holdings on a flight: %f\n\t->Average number of holdings on an emergency flight: %f\n\t->Total number of redirected flights: %d\n\t->Total number of rejected flights: %d",shared_var_stat_time->statistics->created_flights,shared_var_stat_time->statistics->landed_flights,shared_var_stat_time->statistics->average_wait_time_landing,shared_var_stat_time->statistics->take_of_flights,shared_var_stat_time->statistics->average_wait_time_taking_of,shared_var_stat_time->statistics->average_number_holds,shared_var_stat_time->statistics->average_number_holds_urgency,shared_var_stat_time->statistics->number_redirected_flights,shared_var_stat_time->statistics->rejected_flights);
+  if(getpid()!=pid_manager){
+    sem_wait(sem_esta_time);
+    update_statistic(&(shared_var_stat_time->statistics));
+    printf("Statistics:\n\n->Total created flights:%d\n\t->Total landed flights: %d\n\t->Average wait time to land: %f\n\t->Total departed flights: %d\n\t->Average wait time to depart: %f\n\t->Average number of holdings on a flight: %f\n\t->Average number of holdings on an emergency flight: %f\n\t->Total number of redirected flights: %d\n\t->Total number of rejected flights: %d",shared_var_stat_time->statistics.created_flights,shared_var_stat_time->statistics.landed_flights,shared_var_stat_time->statistics.average_wait_time_landing,shared_var_stat_time->statistics.take_of_flights,shared_var_stat_time->statistics.average_wait_time_taking_of,shared_var_stat_time->statistics.average_number_holds,shared_var_stat_time->statistics.average_number_holds_urgency,shared_var_stat_time->statistics.redirected_flights,shared_var_stat_time->statistics.rejected_flights);
+    sem_post(sem_esta_time);
+  }
 }
 
 void initialize_signals(){
-  signal(SIGINT,terminate);
+  //signal(SIGINT,terminate);
   signal(SIGHUP,SIG_IGN);
   signal(SIGQUIT,SIG_IGN);
   signal(SIGILL,SIG_IGN);
@@ -260,7 +266,9 @@ void* thread_creates_threads(void* id){
   leaving_flight l_flight;
   while (1) {
     time_now=time(NULL);
+    sem_wait(sem_esta_time);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    sem_post(sem_esta_time);
     if(coming_flights->next!=NULL && time_passed>=coming_flights->next->init){
       sem_wait(sem_log);
       c_flight.ETA=coming_flights->next->ETA;
@@ -272,7 +280,9 @@ void* thread_creates_threads(void* id){
       counter_threads_coming++;
     }
     time_now=time(NULL);
+    sem_wait(sem_esta_time);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    sem_post(sem_esta_time);
     if(leaving_flights->next!=NULL && time_passed>=leaving_flights->next->init){
       sem_wait(sem_log);
       l_flight.takeoff=leaving_flights->next->takeoff;
@@ -332,6 +342,8 @@ void initialize_semaphores(){
   sem_pistas_departure=sem_open("PISTAS_DEPARTURE",O_CREAT|O_EXCL,0766,2);
   sem_unlink("LL");
   sem_ll=sem_open("LL",O_CREAT|O_EXCL,0766,1);
+  sem_unlink("ESTA_TIME");
+  sem_esta_time=sem_open("ESTA_TIME",O_CREAT|O_EXCL,0766,1);
 }
 
 //******************************SHARED MEMORY***********************************
@@ -348,6 +360,18 @@ void initialize_shm(){
   }
 
   shared_var_stat_time->time_init=time(NULL);
+  shared_var_stat_time->statistics.created_flights=0;
+  shared_var_stat_time->statistics.landed_flights=0;
+  shared_var_stat_time->statistics.take_of_flights=0;
+  shared_var_stat_time->statistics.sum_wait_time_landing=0;
+  shared_var_stat_time->statistics.sum_wait_time_taking_of=0;
+  shared_var_stat_time->statistics.average_wait_time_taking_of=0;
+  shared_var_stat_time->statistics.average_number_holds_urgency=0;
+  shared_var_stat_time->statistics.average_wait_time_landing=0;
+  shared_var_stat_time->statistics.average_wait_time_taking_of=0;
+  shared_var_stat_time->statistics.rejected_flights=0;
+  shared_var_stat_time->statistics.redirected_flights=0;
+
 
   if((shmid_slot=shmget(IPC_PRIVATE,sizeof(flight_slot)*(configurations->A+configurations->D),IPC_CREAT | 0766))<0){//devolve um bloco de memória partilhada de tamanho [size]
     perror("error in shmget with Sta_log_time");
@@ -414,6 +438,8 @@ void arrive2(int slot1,int slot2){
   p_list_slot aux2=find_slot(list_slot_flight,slot2);
   p_list_slot aux_urg1,aux_urg2;
   p_slot aux1_slot,aux2_slot;
+  int time_passed,time_of_wait_to_leave1,time_of_wait_to_leave2;
+  int time_now=time(NULL);
   if(aux1==NULL){
     aux_urg1=find_slot(list_slot_urgency_flight,slot1);
   }
@@ -454,6 +480,16 @@ void arrive2(int slot1,int slot2){
     log_end_landing(f_log,aux1_slot->code,"28R");
     sem_post(sem_log);
   }
+  sem_wait(sem_esta_time);
+  shared_var_stat_time->statistics.sum_number_holds_urgency+=(aux1_slot->nholds_urg+aux2_slot->nholds_urg);
+  shared_var_stat_time->statistics.sum_number_holds+=(aux1_slot->nholds+aux2_slot->nholds);
+  shared_var_stat_time->statistics.sum_number_holds+=(aux1_slot->nholds+aux2_slot->nholds);
+  shared_var_stat_time->statistics.landed_flights+=2;
+  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+  time_of_wait_to_leave1=time_passed-(aux1_slot->eta*1000/configurations->ut);
+  time_of_wait_to_leave2=time_passed-(aux2_slot->eta*1000/configurations->ut);
+  shared_var_stat_time->statistics.sum_wait_time_landing+=(time_of_wait_to_leave1+time_of_wait_to_leave2);
+  sem_post(sem_esta_time);
 }
 
 void arrive(int slot,char* pista){
@@ -462,6 +498,8 @@ void arrive(int slot,char* pista){
   strcat(pista_a,pista);
   p_list_slot aux_urgency=find_slot(list_slot_urgency_flight,slot);
   p_slot aux_slot;
+  int time_passed,time_of_wait_to_leave;
+  int time_now=time(NULL);
   if(aux!=NULL){
     aux_slot=aux->flight_slot;
     sem_wait(sem_log);
@@ -486,12 +524,22 @@ void arrive(int slot,char* pista){
     aux_urgency->flight_slot->finish=1;
     remove_first_slot(list_slot_urgency_flight);
   }
+  sem_wait(sem_esta_time);
+  shared_var_stat_time->statistics.sum_number_holds_urgency+=aux_slot->nholds_urg;
+  shared_var_stat_time->statistics.sum_number_holds+=aux_slot->nholds;
+  shared_var_stat_time->statistics.landed_flights+=1;
+  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+  time_of_wait_to_leave=time_passed-(aux_slot->eta*1000/configurations->ut);
+  shared_var_stat_time->statistics.sum_wait_time_landing+=time_of_wait_to_leave;
+  sem_post(sem_esta_time);
 }
 
 void departure2(int slot1,int slot2){
   p_list_slot aux1=find_slot(list_slot_flight,slot1);
   p_list_slot aux2=find_slot(list_slot_flight,slot2);
   p_slot aux1_slot,aux2_slot;
+  int time_of_wait_to_take_of_1,time_of_wait_to_take_of_2,time_passed;
+  int time_now=time(NULL);
   if(aux1!=NULL && aux2!=NULL){
     aux1_slot=aux1->flight_slot;
     aux2_slot=aux2->flight_slot;
@@ -508,11 +556,20 @@ void departure2(int slot1,int slot2){
     aux2->flight_slot->finish=1;
     remove_first_slot(list_slot_flight);
     remove_first_slot(list_slot_flight);
+    sem_wait(sem_esta_time);
+    shared_var_stat_time->statistics.take_of_flights+=2;
+    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    time_of_wait_to_take_of_1=time_passed-(aux1_slot->takeoff/configurations->ut);
+    time_of_wait_to_take_of_2=time_passed-(aux2_slot->takeoff/configurations->ut);
+    shared_var_stat_time->statistics.sum_wait_time_taking_of+=(time_of_wait_to_take_of_1+time_of_wait_to_take_of_2);
+    sem_post(sem_esta_time);
   }
 }
 
 void departure(int slot,char* pista){
   char pista_d[]=" 01";
+  int time_of_wait_to_take_of,time_passed;
+  int time_now=time(NULL);
   p_list_slot aux=find_slot(list_slot_flight,slot);
   p_slot aux_slot;
   strcat(pista_d,pista);
@@ -527,6 +584,12 @@ void departure(int slot,char* pista){
     sem_post(sem_log);
     aux->flight_slot->finish=1;
     remove_first_slot(list_slot_flight);
+    sem_wait(sem_esta_time);
+    shared_var_stat_time->statistics.take_of_flights+=1;
+    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    time_of_wait_to_take_of=time_passed-(aux_slot->takeoff/configurations->ut);
+    shared_var_stat_time->statistics.sum_wait_time_taking_of+=time_of_wait_to_take_of;
+    sem_post(sem_esta_time);
   }
 }
 
@@ -536,11 +599,12 @@ void holding(int slot){
   p_list_slot aux=find_slot(list_slot_flight,slot);
   if(aux==NULL){
     aux=find_slot(list_slot_urgency_flight,slot);
+    aux->flight_slot->nholds_urg+=1;
   }
+  aux->flight_slot->nholds+=1;
   random=rand()%(configurations->hld_max - configurations->hld_min + 1) + configurations->hld_min;
   log_holding(f_log,aux->flight_slot->code,random);
   aux->flight_slot->holding=random;
-  aux->flight_slot->eta+=random;
   aux->flight_slot->priority+=random;
   reorder(list_slot_flight);
   reorder(list_slot_urgency_flight);
@@ -556,7 +620,9 @@ void* urgencias(void* id){
     }
     pthread_mutex_lock(&mutex_ll);
     time_t time_now=time(NULL);
+    sem_wait(sem_esta_time);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    sem_post(sem_esta_time);
     aux=list_slot_urgency_flight;
     while(aux->next!=NULL){
       if(aux->flight_slot->eta>=time_passed){
@@ -605,7 +671,9 @@ void* departures_arrivals(void* id){
       aux=NULL;
     }
     time_now=time(NULL);
+    sem_wait(sem_esta_time);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+    sem_post(sem_esta_time);
     if(aux!=NULL){
       //printf("entrei %p %p\n", aux, aux->next);
       if(time_passed>=aux->flight_slot->priority){
@@ -751,8 +819,8 @@ void ControlTower(){
   flight_slot buffer;
   list_slot_flight=create_list_slot_flight();
   list_slot_urgency_flight=create_list_slot_flight();
-  printf("%s Torre de Controlo criada: pid%d\n",stime,getpid());
-  fprintf(f_log,"%s Torre de Controlo criada,pid:%d\n",stime,getpid());
+  printf("%s Control Tower created -> pid: %d\n",stime,getpid());
+  fprintf(f_log,"%s Control Tower created -> pid: %d\n",stime,getpid());
   fflush(f_log);
   pthread_create(&threads_functions[1],NULL,try_fuel,NULL);
   pthread_create(&threads_functions[2],NULL,receive_msq_urgency,NULL);
@@ -762,7 +830,7 @@ void ControlTower(){
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
     msq.msgtype=SLOT;
-    buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type);
+    buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type,0,0);
     shm_slots[slot]=buffer;
     sem_wait(sem_ll);
     add_slot_flight(list_slot_flight,&shm_slots[slot]);
@@ -807,8 +875,10 @@ int main(){
         counter++;
         strcpy(keep_code,code);
         sem_wait(sem_log);
+        sem_wait(sem_esta_time);
         test_command=new_command(f_log,code,shared_var_stat_time,configurations);
         sem_post(sem_log);
+        sem_post(sem_esta_time);
         if(test_command==1){
           token=strtok(keep_code," ");
           if(strcmp(token,"DEPARTURE")==0){
@@ -827,6 +897,9 @@ int main(){
               i++;
             }
           add_leaving_flight(leaving_flights,f_code,init,takeoff);
+          sem_wait(sem_esta_time);
+          shared_var_stat_time->statistics.created_flights+=1;
+          sem_post(sem_esta_time);
           }
           else{
             i=0;
@@ -847,6 +920,9 @@ int main(){
               i++;
             }
             add_coming_flight(coming_flights,f_code,init,ETA,fuel);
+            sem_wait(sem_esta_time);
+            shared_var_stat_time->statistics.created_flights+=1;
+            sem_post(sem_esta_time);
           }
         }
       }

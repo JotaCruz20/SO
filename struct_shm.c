@@ -138,15 +138,15 @@ int new_command(FILE *f, char* command,Sta_time* shared_var_sta_time,p_config co
 
 void log_rejected(FILE *f,char* s){
   char* stime = current_time();
-  printf("%s Flight not accepted: %s ||too many flights\n",s);
-  fprintf(f,"%s Flight not accepted: ||too many flights%s\n", s);
+  printf("%s Flight not accepted: %s ||too many flights\n",stime,s);
+  fprintf(f,"%s Flight not accepted: %s ||too many flights\n",stime,s);
   fflush(f);
 }
 
 void log_pipe_program(FILE *f,char* s){
   char* stime = current_time();
-  printf("%s Flight(s) not accepted, because the program ended:\n %s\n",s);
-  fprintf(f,"%s Flight(s) not accepted because the program ended:\n%s\n", s);
+  printf("%s Flight(s) not accepted, because the program ended:\n %s\n",stime,s);
+  fprintf(f,"%s Flight(s) not accepted because the program ended:\n%s\n",stime,s);
   fflush(f);
 }
 

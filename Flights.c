@@ -117,7 +117,7 @@ void remove_first_leaving_flight(p_leaving_flight head){
 
 //******************************Slot Functions**********************************
 
-flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type){
+flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type,int nholds,int nholds_urg){
     flight_slot aux;
     aux.slot=slot;
     aux.eta=eta;
@@ -127,6 +127,8 @@ flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finis
     aux.finish=finished;
     aux.redirected=redirected;
     aux.type=type;
+    aux.nholds=nholds;
+    aux.nholds_urg=nholds_urg;
     strcpy(aux.code,code);
     if(eta>takeoff){
       aux.priority=eta;

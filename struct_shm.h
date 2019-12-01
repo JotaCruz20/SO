@@ -1,4 +1,4 @@
-#include <time.h>
+  #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "Flights.h"
@@ -21,12 +21,12 @@ typedef struct statistic{
     int sum_number_holds,sum_number_holds_urgency;
     double average_number_holds,average_number_holds_urgency;
 
-    int number_redirected_flights,rejected_flights;
+    int redirected_flights,rejected_flights;
 }Statistic;
 typedef Statistic* p_sta;
 
 typedef struct{
-    p_sta statistics;
+    Statistic statistics;
     time_t time_init;
 }Sta_time;
 //message queue structs*********************************************************
@@ -46,12 +46,12 @@ typedef struct{
 void update_statistic();
 
 //log functions*****************************************************************
-int new_command(FILE *f, char* command,Sta_time* shared_var_sta_time,p_config configuration);
+int new_command(FILE *f, char* command,Sta_time* shared_var_stat_time,p_config configuration);
 char* current_time();
-int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configuration);
+int verify_command(char* command,Sta_time* shared_var_stat_time,p_config configuration);
 int verify_fuel(int fuel,int eta,int init);
-int verify_init(int init,Sta_time* shared_var_sta_time,p_config configuration);
-int verify_takeoff(int init,Sta_time* shared_var_sta_time,p_config configuration);
+int verify_init(int init,Sta_time* shared_var_stat_time,p_config configuration);
+int verify_takeoff(int init,Sta_time* shared_var_stat_time,p_config configuration);
 void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 void log_segint(FILE *f,char* s);
@@ -60,6 +60,7 @@ void log_begin_landing(FILE *f,char* flight,char* pista);
 void log_end_landing(FILE *f,char* flight,char* pista);
 void log_begin_Departure(FILE *f,char* flight,char* pista);
 void log_end_Departure(FILE *f,char* flight,char* pista);
+void log_pipe_program(FILE *f,char* message);
 
 //config functions
 p_config inicia(char*);

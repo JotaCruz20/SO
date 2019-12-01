@@ -157,7 +157,7 @@ p_list_slot create_list_slot_flight(void){
 
 void add_slot_flight(p_list_slot head,p_slot slot){
     p_list_slot b4_insert_place;
-    p_list_slot aux = (p_list_slot)malloc(sizeof(list_slot));
+    p_list_slot aux = (p_list_slot)malloc(sizeof(p_list_slot));
     aux->flight_slot=slot;
     b4_insert_place=search_place_to_insert_slot(head,slot->priority);
     aux->next=b4_insert_place->next;
@@ -184,13 +184,13 @@ p_list_slot search_place_to_insert_slot(p_list_slot head,int priority){
 }
 
 void remove_first_slot(p_list_slot head){
-    p_list_slot aux=head->next;
+  p_list_slot aux=head->next;
   if(aux->next!=NULL){
-      head->next=aux->next;
+    head->next=aux->next;
     free(aux);
   }
   else{
-      head->next=NULL;
+    free(aux);
   }
 }
 
@@ -205,22 +205,18 @@ p_list_slot find_slot(p_list_slot head,int slot){
   return NULL;
 }
 
-int remove_slot(p_list_slot head,int slot){
-  p_list_slot ant=head;
-  p_list_slot next;
-  if(ant->next!=NULL){
-    next=ant->next;
-    while(next->next!=NULL){
-      if(next->flight_slot->slot==slot){
-        ant->next=next->next;
-        free(next);
-        return 1;
-      }
-      ant=next;
-      next=next->next;
-    }
+void remove_slot(p_list_slot head,int slot){
+  p_list_slot actual=head;
+  p_list_slot ant;
+  while(actual!=NULL && actual->flight_slot->slot!=slot){
+    ant=actual;
+    actual=actual->next;
   }
-  return 0;
+  if(actual==NULL){
+    return;
+  }
+  ant->next=actual->next;
+  free(actual);
 }
 
 void reorder(p_list_slot head){

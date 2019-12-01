@@ -55,6 +55,6 @@ p_list_slot create_list_slot_flight(void);
 void add_slot_flight(p_list_slot head,p_slot slot);
 p_list_slot search_place_to_insert_slot(p_list_slot head,int priority);
 void remove_first_slot(p_list_slot head);
-int remove_slot(p_list_slot head,int slot);
+void remove_slot(p_list_slot head,int slot);
 p_list_slot find_slot(p_list_slot head,int slot);
 void reorder(p_list_slot head);

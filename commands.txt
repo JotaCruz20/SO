@@ -1,6 +1,6 @@
-DEPARTURE TP1 init: 0 takeoff: 100
+DEPARTURE TP1 init: 3 takeoff: 100
 ARRIVAL TP2 init: 10 eta: 15 fuel: 20
-ARRIVAL TP3 init: 15 eta: 30 fuel: 1500
+ARRIVAL TP3 init: 15 eta: 15 fuel: 1500
 DEPARTURE TP4 init: 20 takeoff: 60
 ARRIVAL TP5 init: 20 eta: 35 fuel: 10000
 DEPARTURE TP6 init: 30 takeoff: 45

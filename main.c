@@ -54,24 +54,49 @@ void initialize_MSQ(){
 //******************************SIGNALS*****************************************
 
 void terminate(){
-  int i,counter=0,nbits;
-  char message[7000],code[6];
-  nbits=read(fd_pipe,message,sizeof(message));
+  int i,nbits;
+  char message[10000],code[6];
   if(getpid()==pid_manager){
+    //CLOSE CONTROL TOWER******************
+    wait(NULL);
+    printf("A Torre fechou.Posso continuar\n");
+    //CLOSE PIPE***************************
+    printf("Closing pipe\n");
+    do{
+      memset(code,0,10000);
+      nbits=read(fd_pipe,message,sizeof(message));
+      log_pipe_program(f_log,message);
+    }while(nbits>0);
     close(fd_pipe);
-    if(nbits > 0){
-      while(message[counter]!='\0'){
-        memset(code,0,70);
-        for(i=0;message[counter]!='\n';i++){
-          code[i]=message[counter];
-          counter++;
-        }
-        counter++;
-        log_segint(f_log,code);
-      }
-    }
+    printf("Closing pipe ended\n");
     //signal de quando as threads todas acabarem eq continua aqui
     fclose(f_log);
+    //CLOSING THREADS***************************
+    printf("Closing threads\n");
+    printf("Closing threads_coming\n");
+    for(i=0;i<counter_threads_coming;i++){
+      pthread_join(threads_coming[i],NULL);
+  	}
+    printf("Closing threads_leaving\n");
+    for(i=0;i<counter_threads_leaving;i++){
+      pthread_join(threads_leaving[i],NULL);
+  	}
+    printf("Closing threads_functions\n");
+    for(i=0;i<6;i++){
+      pthread_cancel(threads_functions[i]);
+  	}
+    printf("Closing threads ended\n");
+    //CLOSE SHARED MEMORIES******************
+    printf("Closing shms\n");
+    if (shmid_stat_time >= 0){ // remove shared memory
+      shmctl(shmid_stat_time, IPC_RMID, NULL);
+    }
+    if (shmid_slot >= 0){ // remove shared memory
+      shmctl(shmid_slot, IPC_RMID, NULL);
+    }
+    printf("Closing shms ended\n");
+    //CLOSE SEMAPHORES**************************
+    printf("Closing semaphores\n");
     sem_close(sem_log);
     sem_close(sem_01L);
     sem_close(sem_01R);
@@ -83,21 +108,16 @@ void terminate(){
     sem_unlink("28R");
     sem_unlink("28L");
     sem_unlink("PISTAS");
-    if (shmid_stat_time >= 0){ // remove shared memory
-      shmctl(shmid_stat_time, IPC_RMID, NULL);
-    }
-    for(i=0;i<counter_threads_coming;i++){
-      pthread_join(threads_coming[i],NULL);
-  	}
-    for(i=0;i<counter_threads_leaving;i++){
-      pthread_join(threads_leaving[i],NULL);
-  	}
-    for(i=0;i<6;i++){
-      pthread_join(threads_functions[i],NULL);
-  	}
+    pthread_mutex_destroy(&mutex_ll);
+    pthread_mutex_destroy(&mutex_urg);
+    printf("Closing semaphores ended\n");
+    exit(0);
   }
-  exit(0);
-}//falta acabar
+  else{
+    printf("A Torre fechou\n");
+    exit(0);
+  }
+}
 
 void sigusr1(){
   update_statistic(shared_var_stat_time->statistics);
@@ -763,7 +783,7 @@ int main(){
   configurations=inicia("config.txt");
   initialize_shm();
   initialize_semaphores();
-  //initialize_signals();
+  initialize_signals();
   initialize_MSQ();
   initialize_pipe();
   initialize_flights();

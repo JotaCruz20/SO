@@ -621,12 +621,13 @@ void* urgencias(void* id){
   int time_passed;
   p_list_slot aux=list_slot_urgency_flight;
   while(1){
+    /*
     while(list_slot_urgency_flight->next==NULL){
       pthread_cond_wait(&cond_urg,&mutex_urg);
-    }
+    }*/
     sem_wait(sem_ll);
     pthread_mutex_lock(&mutex_ll);
-    printf("Entrei\n");
+    //printf("Entrei\n");
     time_t time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     aux=list_slot_urgency_flight;
@@ -642,13 +643,13 @@ void* urgencias(void* id){
         if(valueL==1){
           sem_wait(sem_28L);
           //printf("%d\n",time_passed);
-          //arrive(aux->flight_slot->slot,"L");
+          arrive(aux->flight_slot->slot,"L");
           sem_post(sem_28L);
         }
         else if(valueR==1){
           sem_wait(sem_28R);
           //printf("%d\n",time_passed);
-          //arrive(aux->flight_slot->slot,"R");
+          arrive(aux->flight_slot->slot,"R");
           sem_post(sem_28R);
         }
       }

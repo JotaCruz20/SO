@@ -8,10 +8,20 @@
 
 //function das statistic********************************************************
 void update_statistic(p_sta statistic){
-  statistic->average_wait_time_landing=statistic->sum_wait_time_landing/statistic->landed_flights;
-  statistic->average_wait_time_taking_of=statistic->sum_wait_time_taking_of/statistic->take_of_flights;
-  statistic->average_number_holds=statistic->sum_number_holds/statistic->total_holds;
-  statistic->average_number_holds_urgency=statistic->sum_number_holds_urgency/statistic->total_holds_urgency;
+  if(statistic->landed_flights!=0){
+    statistic->average_wait_time_landing=statistic->sum_wait_time_landing/statistic->landed_flights;
+    statistic->average_number_holds=statistic->sum_number_holds/statistic->landed_flights;
+    statistic->average_number_holds_urgency=statistic->sum_number_holds_urgency/statistic->landed_flights;
+  }
+  else{
+    statistic->average_wait_time_landing=0;
+    statistic->average_number_holds=0;
+    statistic->average_number_holds_urgency=0;
+  }
+  if(statistic->take_of_flights!=0)
+    statistic->average_wait_time_taking_of=statistic->sum_wait_time_taking_of/statistic->take_of_flights;
+  else
+    statistic->average_wait_time_taking_of=0;
 }
 
 //functions do log*************************************************************
@@ -78,7 +88,7 @@ int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configur
       token4=strtok(NULL," ");
       token5=strtok(NULL," ");
       if(strcmp(token,"init:")==0 && strcmp(token2,"eta:")==0 && strcmp(token4,"fuel:")==0){
-        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_time,configuration) && verify_fuel(atoi(token5),atoi(token3),atoi(token1)),configuration){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_time,configuration) && verify_fuel(atoi(token5),atoi(token3),atoi(token1))){
           return 1;
         }
         else

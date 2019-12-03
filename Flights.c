@@ -40,7 +40,7 @@ p_coming_flight search_place_to_insert_coming(p_coming_flight head,int init){
     if(current->next!=NULL){
       next=current->next;
       while(next->next!=NULL){
-          if(current->init<=init && next->init>=init){
+          if(current->init<init && next->init>init){
               return current;
           }
           current=next;
@@ -117,10 +117,11 @@ void remove_first_leaving_flight(p_leaving_flight head){
 
 //******************************Slot Functions**********************************
 
-flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int holding,int finished, int redirected,char* code,char type,int nholds,int nholds_urg,int urg){
+flight_slot add_slot(int slot,int takeoff,int fuel,int eta,int initial_eta,int holding,int finished, int redirected,char* code,char type,int nholds,int nholds_urg,int urg){
     flight_slot aux;
     aux.slot=slot;
     aux.eta=eta;
+    aux.initial_eta=initial_eta;
     aux.fuel=fuel;
     aux.takeoff=takeoff;
     aux.holding=holding;
@@ -158,32 +159,23 @@ p_list_slot create_list_slot_flight(void){
     return aux;
 }
 
-void add_slot_flight(p_list_slot head,p_slot slot){
-    p_list_slot b4_insert_place;
-    p_list_slot aux = (p_list_slot) malloc (sizeof(p_list_slot));
-    aux->flight_slot=slot;
-    b4_insert_place=search_place_to_insert_slot(head,slot->priority);
-    aux->next=b4_insert_place->next;
-    b4_insert_place->next=aux;
+void print_list_teste(p_list_slot head){
+  p_list_slot aux=head;
+  while(aux->next!=NULL){
+    printf("%s\n", aux->next->flight_slot->code );
+    aux=aux->next;
+  }
 }
 
-p_list_slot search_place_to_insert_slot(p_list_slot head,int priority){
-    p_list_slot current=head;
-    p_list_slot next;
-    if(current->next!=NULL){
-      next=current->next;
-      while(next->next!=NULL){
-          if(current->flight_slot->priority<=priority && next->flight_slot->priority>=priority){
-              return current;
-          }
-          current=next;
-          next=next->next;
-      }
-      return next;
-    }
-    else{
-        return current;
-    }
+void add_slot_flight(p_list_slot head,p_slot slot){
+  p_list_slot current=head;
+  p_list_slot aux = (p_list_slot) malloc (sizeof(p_list_slot));
+  aux->flight_slot=slot;
+  while (current->next!=NULL && current->next->flight_slot->priority < aux->flight_slot->priority) {
+      current = current->next;
+  }
+  aux->next = current->next;
+  current->next = aux;
 }
 
 void remove_first_slot(p_list_slot head){
@@ -208,30 +200,40 @@ p_list_slot find_slot(p_list_slot head,int slot){
   return NULL;
 }
 
-void remove_slot(p_list_slot head,int slot){
-  p_list_slot actual=head;
-  p_list_slot ant;
-  while(actual!=NULL && actual->flight_slot->slot!=slot){
-    ant=actual;
-    actual=actual->next;
+void remove_add(p_list_slot head,p_list_slot head_urg,int slot){
+  p_list_slot currentn=head,currentu=head_urg,antn;
+  p_list_slot auxn=find_slot(head,slot),auxu;
+  while(currentn!=auxn){
+    antn=currentn;
+    currentn=currentn->next;
   }
-  if(actual==NULL){
-    return;
+  antn->next=currentn->next;
+  auxu=currentn;
+  if (currentu == NULL || currentu->flight_slot->priority >= auxu->flight_slot->priority) {
+    auxu->next = head;
+    currentu = auxu;
   }
-  ant->next=actual->next;
-  free(actual);
+  else{
+    while (currentu->next!=NULL && currentu->next->flight_slot->priority < auxu->flight_slot->priority) {
+      currentu = currentu->next;
+    }
+    auxu->next = currentu->next;
+    currentu->next = auxu;
+  }
 }
 
 void reorder(p_list_slot head){
   p_list_slot aux;
   p_list_slot after;
   p_list_slot buffer;
-  for(aux=head->next;aux->next!=NULL;aux=aux->next){
-    for(after=aux->next;after->next!=NULL;after=after->next){
-      if(after->flight_slot->priority < aux->flight_slot->priority){
-        buffer = aux;
-        aux = after;
-        after= buffer;
+  if(head->next!=NULL){
+    for(aux=head->next;aux->next!=NULL;aux=aux->next){
+      for(after=aux->next;after->next!=NULL;after=after->next){
+        if(after->flight_slot->priority < aux->flight_slot->priority){
+          buffer = aux;
+          aux = after;
+          after= buffer;
+        }
       }
     }
   }

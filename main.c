@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include "struct_shm.h"
 #define PIPE_NAME  "named_pipe"
-#define DEBUG 0
+#define DEBUG
 #define SLOT 2
 #define FLIGHTS 1
 #define URGENCY 3
@@ -33,8 +33,11 @@ sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pist
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_urg= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_urg= PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex_sleep= PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_sleep= PTHREAD_COND_INITIALIZER;
 pthread_t threads_functions[6];//id da thread que cria threads
 pthread_t *threads_coming,*threads_leaving;//array dos ids threads
+pthread_t threads_arrivals[2],threads_departures[2];
 FILE* f_log;
 p_config configurations;//configs
 p_coming_flight coming_flights;//arrival flights
@@ -165,6 +168,86 @@ void initialize_signals(){
 
 //*******************************THREADS****************************************
 
+void arrive(p_slot aux_slot,char* pista){
+  int time_passed,time_of_wait_to_leave;
+  int time_now=time(NULL);
+  sem_wait(sem_pistas_landing);
+  sem_wait(sem_pistas_departure);
+  if(strcmp(pista,"28L")==0){
+    sem_wait(sem_28L);
+    sem_wait(sem_log);
+    log_begin_landing(f_log,aux_slot->code,"28L");
+    sem_post(sem_log);
+    usleep(configurations->L*10000);
+    sem_wait(sem_log);
+    log_end_landing(f_log,aux_slot->code,"28L");
+    sem_post(sem_log);
+    usleep(configurations->dl*1000);
+    sem_post(sem_28L);
+  }
+  else{
+    sem_wait(sem_28R);
+    sem_wait(sem_log);
+    log_begin_landing(f_log,aux_slot->code,"28R");
+    sem_post(sem_log);
+    usleep(configurations->L*10000);
+    sem_wait(sem_log);
+    log_end_landing(f_log,aux_slot->code,"28R");
+    sem_post(sem_log);
+    usleep(configurations->dl*1000);
+    sem_post(sem_28R);
+  }
+  sem_post(sem_pistas_landing);
+  sem_post(sem_pistas_departure);
+  sem_wait(sem_esta_time);
+  shared_var_stat_time->statistics.sum_number_holds_urgency+=aux_slot->nholds_urg;
+  shared_var_stat_time->statistics.sum_number_holds+=aux_slot->nholds;
+  shared_var_stat_time->statistics.landed_flights+=1;
+  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+  time_of_wait_to_leave=time_passed-(aux_slot->eta*1000/configurations->ut);
+  shared_var_stat_time->statistics.sum_wait_time_landing+=time_of_wait_to_leave;
+  sem_post(sem_esta_time);
+}
+
+void departure(p_slot aux_slot,char* pista){
+  int time_of_wait_to_take_of,time_passed;
+  int time_now=time(NULL);
+  sem_wait(sem_pistas_landing);
+  sem_wait(sem_pistas_departure);
+  if(strcmp(pista,"01L")==0){
+    sem_wait(sem_01L);
+    sem_wait(sem_log);
+    log_begin_Departure(f_log,aux_slot->code,"01L");
+    sem_post(sem_log);
+    usleep(configurations->T*10000);
+    sem_wait(sem_log);
+    log_end_Departure(f_log,aux_slot->code,"01L");
+    sem_post(sem_log);
+    usleep(configurations->dt*1000);
+    sem_post(sem_01L);
+  }
+  else if(strcmp(pista,"01R")==0){
+    sem_wait(sem_01R);
+    sem_wait(sem_log);
+    log_begin_Departure(f_log,aux_slot->code,"01L");
+    sem_post(sem_log);
+    usleep(configurations->T*10000);
+    sem_wait(sem_log);
+    log_end_Departure(f_log,aux_slot->code,"01L");
+    sem_post(sem_log);
+    usleep(configurations->dt*1000);
+    sem_post(sem_01R);
+  }
+  sem_post(sem_pistas_landing);
+  sem_post(sem_pistas_departure);
+  sem_wait(sem_esta_time);
+  shared_var_stat_time->statistics.take_of_flights+=1;
+  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+  time_of_wait_to_take_of=time_passed-(aux_slot->takeoff/configurations->ut);
+  shared_var_stat_time->statistics.sum_wait_time_taking_of+=time_of_wait_to_take_of;
+  sem_post(sem_esta_time);
+}
+
 void* cthreads_leaving(void* flight){
   char code[6];
   p_slot slot_aux;
@@ -185,12 +268,13 @@ void* cthreads_leaving(void* flight){
   sem_post(sem_log);
   msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
   slot_aux=msq.slot_buffer;
   while(slot_aux->finish!=1){
-    usleep(configurations->T*1000);
+    usleep(configurations->T*10000);
   }
-  //printf("Saindo \n");
+  departure(slot_aux,slot_aux->pista);
+  printf("Saindo %s\n",slot_aux->code);
   pthread_exit(NULL);
 }
 
@@ -228,7 +312,6 @@ void* try_fuel(void* flight){
 
 void* cthreads_coming(void* flight){
   coming_flight my_flight=*((coming_flight*)flight);//para ficar como coming_flight
-  int flagh=0;
   char* stime = current_time();
   p_slot slot_aux;
   msq_flights msq = {FLIGHTS,'a',0,my_flight.ETA,my_flight.fuel};
@@ -240,23 +323,18 @@ void* cthreads_coming(void* flight){
   sem_post(sem_log);
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
-  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
   slot_aux=msq.slot_buffer;
   while(slot_aux->finish!=1){
-    if(slot_aux->holding!=0 && flagh==0){
-      sem_wait(sem_log);
-      log_holding(f_log,slot_aux->code,slot_aux->holding);
-      sem_post(sem_log);
-      flagh=1;
-    }
+    usleep(configurations->L*10000);
     if(slot_aux->redirected==1){
       sem_wait(sem_log);
       log_redirected(f_log,slot_aux->code,slot_aux->fuel);
       sem_post(sem_log);
     }
-    usleep(configurations->T*1000);
   }
-  //printf("Saindo \n");
+  arrive(slot_aux,slot_aux->pista);
+  printf("Entrando %s \n",slot_aux->code);
   pthread_exit(NULL);
 }
 
@@ -271,13 +349,12 @@ void* thread_creates_threads(void* id){
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     sem_post(sem_esta_time);
     if(coming_flights->next!=NULL && time_passed>=coming_flights->next->init){
-      sem_wait(sem_log);
       c_flight.ETA=coming_flights->next->ETA;
       c_flight.fuel=coming_flights->next->fuel;
       strcpy(c_flight.flight_code,coming_flights->next->flight_code);
       pthread_create(&threads_coming[counter_threads_coming],NULL,cthreads_coming,&c_flight);
-      sem_post(sem_log);
       remove_first_coming_flight(coming_flights);
+      sleep(1);
       counter_threads_coming++;
     }
     time_now=time(NULL);
@@ -285,12 +362,11 @@ void* thread_creates_threads(void* id){
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     sem_post(sem_esta_time);
     if(leaving_flights->next!=NULL && time_passed>=leaving_flights->next->init){
-      sem_wait(sem_log);
       l_flight.takeoff=leaving_flights->next->takeoff;
       strcpy(l_flight.flight_code,leaving_flights->next->flight_code);
       pthread_create(&threads_leaving[counter_threads_leaving],NULL,cthreads_leaving,&l_flight);
-      sem_post(sem_log);
       remove_first_leaving_flight(leaving_flights);
+      sleep(1);
       counter_threads_leaving++;
     }
   }
@@ -394,17 +470,34 @@ void* receive_msq_urgency(void* id){
     pthread_mutex_lock(&mutex_urg);
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
     pthread_mutex_lock(&mutex_ll);
-    aux=find_slot(list_slot_flight,msq.slot_buffer->slot);
-    add_slot_flight(list_slot_urgency_flight,aux->flight_slot);
-    remove_slot(list_slot_flight,aux->flight_slot->slot);
-    reorder(list_slot_urgency_flight);
+    remove_add(list_slot_flight,list_slot_urgency_flight,msq.slot_buffer->slot);
     pthread_mutex_unlock(&mutex_ll);
     sem_wait(sem_log);
     log_emergency_landing(f_log,msq.slot_buffer->code);
     sem_post(sem_log);
-    pthread_mutex_unlock(&mutex_urg);
     pthread_cond_signal(&cond_urg);
+    pthread_mutex_unlock(&mutex_urg);
   }
+}
+
+void holding(int slot){
+  int random;
+  srand(time(NULL));
+  p_list_slot aux=find_slot(list_slot_flight,slot);
+  if(aux==NULL){
+    aux=find_slot(list_slot_urgency_flight,slot);
+    aux->flight_slot->nholds_urg+=1;
+  }
+  aux->flight_slot->nholds+=1;
+  random=rand()%(configurations->hld_max - configurations->hld_min + 1) + configurations->hld_min;
+  sem_wait(sem_log);
+  log_holding(f_log,aux->flight_slot->code,random);
+  sem_post(sem_log);
+  aux->flight_slot->eta+=random;
+  aux->flight_slot->holding=random;
+  aux->flight_slot->priority+=random;
+  reorder(list_slot_flight);
+  reorder(list_slot_urgency_flight);
 }
 
 void* update_fuel(void* id){
@@ -437,319 +530,138 @@ void* update_fuel(void* id){
   }
 }
 
-void arrive2(int slot1,int slot2){
-  p_list_slot aux1=find_slot(list_slot_flight,slot1);
-  p_list_slot aux2=find_slot(list_slot_flight,slot2);
-  p_list_slot aux_urg1,aux_urg2;
-  p_slot aux1_slot,aux2_slot;
-  int time_passed,time_of_wait_to_leave1,time_of_wait_to_leave2;
-  int time_now=time(NULL);
-  if(aux1==NULL){
-    aux_urg1=find_slot(list_slot_urgency_flight,slot1);
-  }
-  if(aux2==NULL){
-    aux_urg2=find_slot(list_slot_urgency_flight,slot2);
-  }
-  if(aux1!=NULL && aux2!=NULL){
-    aux1->flight_slot->finish=1;
-    aux2->flight_slot->finish=1;
-    aux1_slot=aux1->flight_slot;
-    aux2_slot=aux2->flight_slot;
-    remove_first_slot(list_slot_flight);
-    remove_first_slot(list_slot_flight);
-    sem_wait(sem_log);
-    log_begin_landing(f_log,aux1_slot->code,"28L");
-    log_begin_landing(f_log,aux2_slot->code,"28R");
-    sem_post(sem_log);
-    usleep(configurations->T*1000);
-    sem_wait(sem_log);
-    log_end_landing(f_log,aux1_slot->code,"28L");
-    log_end_landing(f_log,aux2_slot->code,"28R");
-    sem_post(sem_log);
-  }
-  else{
-    aux_urg1->flight_slot->finish=1;
-    aux_urg2->flight_slot->finish=1;
-    aux1_slot=aux_urg1->flight_slot;
-    aux2_slot=aux_urg2->flight_slot;
-    remove_first_slot(list_slot_urgency_flight);
-    remove_first_slot(list_slot_urgency_flight);
-    sem_wait(sem_log);
-    log_begin_landing(f_log,aux1_slot->code,"28L");
-    log_begin_landing(f_log,aux2_slot->code,"28R");
-    sem_post(sem_log);
-    usleep(configurations->T*1000);
-    sem_wait(sem_log);
-    log_end_landing(f_log,aux1_slot->code,"28L");
-    log_end_landing(f_log,aux1_slot->code,"28R");
-    sem_post(sem_log);
-  }
-  sem_wait(sem_esta_time);
-  shared_var_stat_time->statistics.sum_number_holds_urgency+=(aux1_slot->nholds_urg+aux2_slot->nholds_urg);
-  shared_var_stat_time->statistics.sum_number_holds+=(aux1_slot->nholds+aux2_slot->nholds);
-  shared_var_stat_time->statistics.sum_number_holds+=(aux1_slot->nholds+aux2_slot->nholds);
-  shared_var_stat_time->statistics.landed_flights+=2;
-  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-  time_of_wait_to_leave1=time_passed-(aux1_slot->eta*1000/configurations->ut);
-  time_of_wait_to_leave2=time_passed-(aux2_slot->eta*1000/configurations->ut);
-  shared_var_stat_time->statistics.sum_wait_time_landing+=(time_of_wait_to_leave1+time_of_wait_to_leave2);
-  sem_post(sem_esta_time);
-}
-
-void arrive(int slot,char* pista){
-  char pista_a[]=" 28";
-  p_list_slot aux=find_slot(list_slot_flight,slot);
-  strcat(pista_a,pista);
-  p_list_slot aux_urgency=find_slot(list_slot_urgency_flight,slot);
-  p_slot aux_slot;
-  int time_passed,time_of_wait_to_leave;
-  int time_now=time(NULL);
-  if(aux!=NULL){
-    aux_slot=aux->flight_slot;
-    sem_wait(sem_log);
-    log_begin_landing(f_log,aux_slot->code,pista_a);
-    sem_post(sem_log);
-    usleep(configurations->T*1000);
-    sem_wait(sem_log);
-    log_end_landing(f_log,aux_slot->code,pista_a);
-    sem_post(sem_log);
-    aux->flight_slot->finish=1;
-    remove_first_slot(list_slot_flight);
-  }
-  else if(aux_urgency!=NULL){
-    aux_slot=aux_urgency->flight_slot;
-    sem_wait(sem_log);
-    log_begin_landing(f_log,aux_slot->code,pista_a);
-    sem_post(sem_log);
-    usleep(configurations->T*1000);
-    sem_wait(sem_log);
-    log_end_landing(f_log,aux_slot->code,pista_a);
-    sem_post(sem_log);
-    aux_urgency->flight_slot->finish=1;
-    remove_first_slot(list_slot_urgency_flight);
-  }
-  sem_wait(sem_esta_time);
-  shared_var_stat_time->statistics.sum_number_holds_urgency+=aux_slot->nholds_urg;
-  shared_var_stat_time->statistics.sum_number_holds+=aux_slot->nholds;
-  shared_var_stat_time->statistics.landed_flights+=1;
-  time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-  time_of_wait_to_leave=time_passed-(aux_slot->eta*1000/configurations->ut);
-  shared_var_stat_time->statistics.sum_wait_time_landing+=time_of_wait_to_leave;
-  sem_post(sem_esta_time);
-}
-
-void departure2(int slot1,int slot2){
-  p_list_slot aux1=find_slot(list_slot_flight,slot1);
-  p_list_slot aux2=find_slot(list_slot_flight,slot2);
-  p_slot aux1_slot,aux2_slot;
-  int time_of_wait_to_take_of_1,time_of_wait_to_take_of_2,time_passed;
-  int time_now=time(NULL);
-  if(aux1!=NULL && aux2!=NULL){
-    aux1_slot=aux1->flight_slot;
-    aux2_slot=aux2->flight_slot;
-    sem_wait(sem_log);
-    log_begin_Departure(f_log,aux1_slot->code,"01L");
-    log_begin_Departure(f_log,aux2_slot->code,"01R");
-    sem_post(sem_log);
-    usleep(configurations->L*1000);
-    sem_wait(sem_log);
-    log_end_Departure(f_log,aux1_slot->code,"01L");
-    log_end_Departure(f_log,aux2_slot->code,"01R");
-    sem_post(sem_log);
-    aux1->flight_slot->finish=1;
-    aux2->flight_slot->finish=1;
-    remove_first_slot(list_slot_flight);
-    remove_first_slot(list_slot_flight);
-    sem_wait(sem_esta_time);
-    shared_var_stat_time->statistics.take_of_flights+=2;
-    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-    time_of_wait_to_take_of_1=time_passed-(aux1_slot->takeoff/configurations->ut);
-    time_of_wait_to_take_of_2=time_passed-(aux2_slot->takeoff/configurations->ut);
-    shared_var_stat_time->statistics.sum_wait_time_taking_of+=(time_of_wait_to_take_of_1+time_of_wait_to_take_of_2);
-    sem_post(sem_esta_time);
-  }
-}
-
-void departure(int slot,char* pista){
-  char pista_d[]=" 01";
-  int time_of_wait_to_take_of,time_passed;
-  int time_now=time(NULL);
-  p_list_slot aux=find_slot(list_slot_flight,slot);
-  p_slot aux_slot;
-  strcat(pista_d,pista);
-  if(aux!=NULL){
-    aux_slot=aux->flight_slot;
-    sem_wait(sem_log);
-    log_begin_Departure(f_log,aux_slot->code,pista_d);
-    sem_post(sem_log);
-    usleep(configurations->L*1000);
-    sem_wait(sem_log);
-    log_end_Departure(f_log,aux_slot->code,pista_d);
-    sem_post(sem_log);
-    aux->flight_slot->finish=1;
-    remove_first_slot(list_slot_flight);
-    sem_wait(sem_esta_time);
-    shared_var_stat_time->statistics.take_of_flights+=1;
-    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-    time_of_wait_to_take_of=time_passed-(aux_slot->takeoff/configurations->ut);
-    shared_var_stat_time->statistics.sum_wait_time_taking_of+=time_of_wait_to_take_of;
-    sem_post(sem_esta_time);
-  }
-}
-
-void holding(int slot){
-  int random;
-  srand(time(NULL));
-  p_list_slot aux=find_slot(list_slot_flight,slot);
-  if(aux==NULL){
-    aux=find_slot(list_slot_urgency_flight,slot);
-    aux->flight_slot->nholds_urg+=1;
-  }
-  aux->flight_slot->nholds+=1;
-  random=rand()%(configurations->hld_max - configurations->hld_min + 1) + configurations->hld_min;
-  sem_wait(sem_log);
-  log_holding(f_log,aux->flight_slot->code,random);
-  sem_post(sem_log);
-  aux->flight_slot->holding=random;
-  aux->flight_slot->priority+=random;
-  reorder(list_slot_flight);
-  reorder(list_slot_urgency_flight);
-}
-
+/*
 void* urgencias(void* id){
-  int valueL,valueR,valueA,valueD;
+  int valueA,valueD;
   int time_passed;
   p_list_slot aux=list_slot_urgency_flight;
   while(1){
-    /*
+    pthread_mutex_lock(&mutex_urg);
     while(list_slot_urgency_flight->next==NULL){
       pthread_cond_wait(&cond_urg,&mutex_urg);
-    }*/
-    sem_wait(sem_ll);
-    pthread_mutex_lock(&mutex_ll);
-    //printf("Entrei\n");
+    }
     time_t time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     aux=list_slot_urgency_flight;
-    if(time_passed>=aux->flight_slot->eta){
+    if(time_passed>=aux->next->flight_slot->priority && aux->flight_slot->type==aux->next->flight_slot->type){
+      sem_getvalue(sem_pistas_landing,&valueA);
+      sem_getvalue(sem_pistas_departure,&valueD);
+      if(valueA==2 && valueD==2){
+
+      }
+      else{
+        if(aux->flight_slot->type=='a'){
+          holding(aux->flight_slot->slot);
+          holding(aux->next->flight_slot->slot);
+        }
+      }
+    }
+    else{
       sem_getvalue(sem_pistas_landing,&valueA);
       sem_getvalue(sem_pistas_departure,&valueD);
       if(valueA>=1 && valueD==2){
-        sem_wait(sem_pistas_landing);
-        sem_wait(sem_pistas_departure);
-        sem_wait(sem_pistas_departure);
-        sem_getvalue(sem_28L,&valueL);
-        sem_getvalue(sem_28L,&valueR);
-        if(valueL==1){
-          sem_wait(sem_28L);
-          //printf("%d\n",time_passed);
-          arrive(aux->flight_slot->slot,"L");
-          sem_post(sem_28L);
-        }
-        else if(valueR==1){
-          sem_wait(sem_28R);
-          //printf("%d\n",time_passed);
-          arrive(aux->flight_slot->slot,"R");
-          sem_post(sem_28R);
-        }
+        pthread_create(&threads_arrivals[0],NULL,arrive,&aux->flight_slot->slot);
       }
-      else{
-        holding(aux->flight_slot->slot);
-      }
+      pthread_mutex_unlock(&mutex_urg);
     }
-    sem_post(sem_ll);
-    pthread_mutex_unlock(&mutex_ll);
+    pthread_exit(NULL);
   }
-  pthread_exit(NULL);
-}
+}*/
 
 void* departures_arrivals(void* id){
-  int time_passed,valueL,valueR,valueD,valueA;
+  int time_passed,valueD,valueA,valueL,valueR;
   time_t time_now;
   p_list_slot aux;
   while(1){
-    pthread_mutex_lock(&mutex_ll);
     if(list_slot_flight->next!=NULL){
       aux=list_slot_flight->next;
-    }
-    else{
-      aux=NULL;
-    }
-    time_now=time(NULL);
-    sem_wait(sem_esta_time);
-    time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-    sem_post(sem_esta_time);
-    if(aux!=NULL){
-      //printf("entrei %p %p\n", aux, aux->next);
+      time_now=time(NULL);
+      time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
       if(time_passed>=aux->flight_slot->priority){
         if(aux->next!=NULL){
           if(time_passed>=aux->next->flight_slot->priority && aux->flight_slot->type==aux->next->flight_slot->type){
             sem_getvalue(sem_pistas_landing,&valueA);
             sem_getvalue(sem_pistas_departure,&valueD);
             if(valueA==2 && valueD==2){
-              sem_wait(sem_pistas_landing);
-              sem_wait(sem_pistas_landing);
-              sem_wait(sem_pistas_departure);
-              sem_wait(sem_pistas_departure);
+              if(aux->flight_slot->type=='a'){
+                strcpy(aux->flight_slot->pista,"28L");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
+                strcpy(aux->next->flight_slot->pista,"28R");
+                aux->next->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
+              }
+              else{
+                strcpy(aux->flight_slot->pista,"01L");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
+                strcpy(aux->next->flight_slot->pista,"01R");
+                aux->next->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
+              }
+            }
+            else{
               if(aux->flight_slot->type=='a'){
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
-                if(valueL==1 && valueR==1){
-                  sem_wait(sem_28R);
-                  sem_wait(sem_28L);
-                  printf("%d\n",time_passed);
-                  arrive2(aux->flight_slot->slot,aux->next->flight_slot->slot);
-                  sem_post(sem_28L);
-                  sem_post(sem_28R);
-                }
-                else if(valueL==1){
-                  sem_wait(sem_28L);
-                  printf("%d\n",time_passed);
-                  arrive(aux->flight_slot->slot,"L");
-                  sem_post(sem_28L);
+                if(valueL==1){
+                  strcpy(aux->flight_slot->pista,"28L");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
                   holding(aux->flight_slot->slot);
                 }
                 else if(valueR==1){
-                  sem_wait(sem_28R);
-                  printf("%d\n",time_passed);
-                  arrive(aux->flight_slot->slot,"R");
-                  sem_post(sem_28R);
+                  strcpy(aux->flight_slot->pista,"28R");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
                   holding(aux->flight_slot->slot);
                 }
-              }
-              else{
-                sem_getvalue(sem_01L,&valueL);
-                sem_getvalue(sem_01R,&valueR);
-                if(valueL==1 && valueR==1){
-                  sem_wait(sem_01R);
-                  sem_wait(sem_01L);
-                  printf("%d\n",time_passed);
-                  departure2(aux->flight_slot->slot,aux->next->flight_slot->slot);
-                  sem_post(sem_01L);
-                  sem_post(sem_01R);
-                }
-                else if(valueL==1){
-                  sem_wait(sem_01L);
-                  printf("%d\n",time_passed);
-                  departure(aux->flight_slot->slot,"L");
-                  sem_post(sem_01L);
-                }
-                else if(valueR==1){
-                  sem_wait(sem_01R);
-                  printf("%d\n",time_passed);
-                  arrive(aux->flight_slot->slot,"R");
-                  sem_post(sem_01R);
+                else{
+                  holding(aux->flight_slot->slot);
+                  holding(aux->next->flight_slot->slot);
                 }
               }
-              sem_post(sem_pistas_landing);
-              sem_post(sem_pistas_landing);
-              sem_post(sem_pistas_departure);
-              sem_post(sem_pistas_departure);
+            }
           }
           else{
             if(aux->flight_slot->type=='a'){
-              holding(aux->flight_slot->slot);
-              holding(aux->next->flight_slot->slot);
+              sem_getvalue(sem_pistas_landing,&valueA);
+              sem_getvalue(sem_pistas_departure,&valueD);
+              if(valueA>=1 && valueD==2){
+                sem_getvalue(sem_28L,&valueL);
+                sem_getvalue(sem_28R,&valueR);
+                if(valueR==1){
+                  strcpy(aux->flight_slot->pista,"28R");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                }
+                else if(valueL==1){
+                  strcpy(aux->flight_slot->pista,"28L");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                }
+                else{
+                  holding(aux->flight_slot->slot);
+                }
+              }
+            }
+            else{
+              sem_getvalue(sem_pistas_landing,&valueA);
+              sem_getvalue(sem_pistas_departure,&valueD);
+              if(valueD>=1 && valueA==2){
+                sem_getvalue(sem_01L,&valueL);
+                sem_getvalue(sem_01R,&valueR);
+                if(valueR==1){
+                  strcpy(aux->flight_slot->pista,"01R");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                }
+                else if(valueL==1){
+                  strcpy(aux->flight_slot->pista,"01L");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                }
+              }
             }
           }
         }
@@ -758,62 +670,45 @@ void* departures_arrivals(void* id){
             sem_getvalue(sem_pistas_landing,&valueA);
             sem_getvalue(sem_pistas_departure,&valueD);
             if(valueA>=1 && valueD==2){
-              sem_wait(sem_pistas_landing);
-              sem_wait(sem_pistas_departure);
-              sem_wait(sem_pistas_departure);
               sem_getvalue(sem_28L,&valueL);
               sem_getvalue(sem_28R,&valueR);
-              if(valueL==1){
-                  sem_wait(sem_28L);
-                  printf("%d\n",time_passed);
-                  arrive(aux->flight_slot->slot,"L");
-                  sem_post(sem_28L);
+              printf("3\n");
+              if(valueR==1){
+                strcpy(aux->flight_slot->pista,"28R");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
               }
-              else if(valueR==1){
-                sem_wait(sem_28R);
-                printf("%d\n",time_passed);
-                arrive(aux->flight_slot->slot,"R");
-                sem_post(sem_28R);
+              else if(valueL==1){
+                strcpy(aux->flight_slot->pista,"28L");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
               }
-              sem_post(sem_pistas_landing);
-              sem_post(sem_pistas_departure);
-              sem_post(sem_pistas_departure);
-            }
-            else{
-              holding(aux->flight_slot->slot);
+              else{
+                holding(aux->flight_slot->slot);
+              }
             }
           }
           else{
             sem_getvalue(sem_pistas_landing,&valueA);
             sem_getvalue(sem_pistas_departure,&valueD);
             if(valueD>=1 && valueA==2){
-              sem_wait(sem_pistas_landing);
-              sem_wait(sem_pistas_landing);
-              sem_wait(sem_pistas_departure);
               sem_getvalue(sem_01L,&valueL);
               sem_getvalue(sem_01R,&valueR);
-              if(valueL==1){
-                sem_wait(sem_01L);
-                printf("%d\n",time_passed);
-                departure(aux->flight_slot->slot,"L");
-                sem_post(sem_01L);
+              if(valueR==1){
+                strcpy(aux->flight_slot->pista,"01R");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
               }
-              else if(valueR==1){
-                sem_wait(sem_01R);
-                printf("%d\n",time_passed);
-                departure(aux->flight_slot->slot,"R");
-                sem_post(sem_01R);
+              else if(valueL==1){
+                strcpy(aux->flight_slot->pista,"01L");
+                aux->flight_slot->finish=1;
+                remove_first_slot(list_slot_flight);
               }
-              sem_post(sem_pistas_landing);
-              sem_post(sem_pistas_landing);
-              sem_post(sem_pistas_departure);
             }
           }
         }
       }
     }
-  }
-  pthread_mutex_unlock(&mutex_ll);
   }
 }
 
@@ -831,15 +726,14 @@ void ControlTower(){
   pthread_create(&threads_functions[2],NULL,receive_msq_urgency,NULL);
   pthread_create(&threads_functions[3],NULL,update_fuel,NULL);
   pthread_create(&threads_functions[4],NULL,departures_arrivals,NULL);
-  pthread_create(&threads_functions[5],NULL,urgencias,NULL);
+  //pthread_create(&threads_functions[5],NULL,urgencias,NULL);
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
     msq.msgtype=SLOT;
-    buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,0,0,0,msq.slot.code,msq.type,0,0,0);
+    buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,msq.ETA,0,0,0,msq.slot.code,msq.type,0,0,0);
     shm_slots[slot]=buffer;
-    sem_wait(sem_ll);
     add_slot_flight(list_slot_flight,&shm_slots[slot]);
-    sem_post(sem_ll);
+    //print_list_teste(list_slot_flight);
     msq.slot_buffer=&shm_slots[slot];
     slot++;
     msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
@@ -900,7 +794,7 @@ int main(){
                 takeoff=atoi(token);
               }
               i++;
-            }
+          }
           add_leaving_flight(leaving_flights,f_code,init,takeoff);
           sem_wait(sem_esta_time);
           shared_var_stat_time->statistics.created_flights+=1;

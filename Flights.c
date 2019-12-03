@@ -182,11 +182,8 @@ void remove_first_slot(p_list_slot head){
   p_list_slot aux=head->next;
   if(aux->next!=NULL){
     head->next=aux->next;
-    free(aux);
   }
-  else{
-    free(aux);
-  }
+  free(aux);
 }
 
 p_list_slot find_slot(p_list_slot head,int slot){
@@ -202,24 +199,19 @@ p_list_slot find_slot(p_list_slot head,int slot){
 
 void remove_add(p_list_slot head,p_list_slot head_urg,int slot){
   p_list_slot currentn=head,currentu=head_urg,antn;
-  p_list_slot auxn=find_slot(head,slot),auxu;
-  while(currentn!=auxn){
+  p_list_slot auxu;
+  while(currentn->flight_slot->slot!=slot){
     antn=currentn;
     currentn=currentn->next;
   }
   antn->next=currentn->next;
   auxu=currentn;
-  if (currentu == NULL || currentu->flight_slot->priority >= auxu->flight_slot->priority) {
-    auxu->next = head;
-    currentu = auxu;
-  }
-  else{
-    while (currentu->next!=NULL && currentu->next->flight_slot->priority < auxu->flight_slot->priority) {
+  while (currentu->next!=NULL) {
+    if(currentu->next->flight_slot->priority < auxu->flight_slot->priority)
       currentu = currentu->next;
-    }
-    auxu->next = currentu->next;
-    currentu->next = auxu;
   }
+  auxu->next = currentu->next;
+  currentu->next = auxu;
 }
 
 void reorder(p_list_slot head){

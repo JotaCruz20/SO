@@ -184,6 +184,19 @@ void log_redirected(FILE *f,char* flight,int fuel){
   fflush(f);
 }
 
+void log_arrive_created(FILE *f,char* code){
+  char* stime = current_time();
+  printf("%s ARRIVAL %s created\n",stime,code);
+  fprintf(f,"%s ARRIVAL => %s created\n",stime,code);
+  fflush(f);
+}
+void log_departure_created(FILE *f,char* code){
+  char* stime = current_time();
+  printf("%s DEPARTURE %s created\n",stime,code);
+  fprintf(f,"%s DEPARTURE => %s created\n",stime,code);
+  fflush(f);
+}
+
 void log_begin_landing(FILE *f,char* flight,char* pista){
   char* stime = current_time();
   printf("%s %s LANDING %s started\n",stime,flight,pista);

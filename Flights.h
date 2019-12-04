@@ -1,16 +1,9 @@
-typedef struct l_node* p_leaving_flight;
-typedef struct l_node{
-  char flight_code[6];
-  int init,takeoff;
-  p_leaving_flight next;
-}leaving_flight;
-
-typedef struct c_node* p_coming_flight;
-typedef struct c_node{
-  char flight_code[6];
-  int init,ETA,fuel;
-  p_coming_flight next;
-}coming_flight;
+typedef struct f_node* p_flight;
+typedef struct f_node{
+  char flight_code[6],type;
+  int init,takeoff,ETA,fuel;
+  p_flight next;
+}flights_struct;
 
 typedef struct s_node* p_slot;
 typedef struct s_node{
@@ -27,21 +20,12 @@ typedef struct ls_node{
   p_list_slot next;
 }list_slot;
 
-//*************************Coming Flights**********************************
+//*************************Flights**********************************
 
-p_coming_flight create_list_coming_flight(void);
-void print_coming_flights_list(p_coming_flight head);
-void add_coming_flight(p_coming_flight head,char* flight_code,int init,int ETA,int fuel);
-p_coming_flight search_place_to_insert_coming(p_coming_flight head,int init);
-void remove_first_coming_flight(p_coming_flight head);
-
-//*************************Leaving Flights*********************************
-
-p_leaving_flight create_list_leaving_flight(void);
-void print_leaving_flights_list(p_leaving_flight head);
-void add_leaving_flight(p_leaving_flight head,char* flight_code,int init,int takeoff);
-p_leaving_flight search_place_to_insert_leaving(p_leaving_flight head,int init);
-void remove_first_leaving_flight(p_leaving_flight head);
+p_flight create_list_flight(void);
+void print_flights_list(p_flight head);
+void add_flight(p_flight head,char* flight_code,int init,int takeoff,int ETA,int fuel,char type);
+void remove_first_flight(p_flight head);
 
 //*****************************SLOTS***************************************
 
@@ -56,6 +40,6 @@ p_list_slot create_list_slot_flight(void);
 void add_slot_flight(p_list_slot head,p_slot slot);
 p_list_slot search_place_to_insert_slot(p_list_slot head,int priority);
 void remove_first_slot(p_list_slot head);
-void remove_add(p_list_slot head,p_list_slot head_urg,int slot);
+void remove_add_urgency(p_list_slot head,int slot);
 p_list_slot find_slot(p_list_slot head,int slot);
 void reorder(p_list_slot head);

@@ -60,6 +60,8 @@ void log_end_landing(FILE *f,char* flight,char* pista);
 void log_begin_Departure(FILE *f,char* flight,char* pista);
 void log_end_Departure(FILE *f,char* flight,char* pista);
 void log_pipe_program(FILE *f,char* message);
+void log_departure_created(FILE *f,char* code);
+void log_arrive_created(FILE *f,char* code);
 
 //config functions
 p_config inicia(char*);

@@ -3,117 +3,47 @@
 #include "Flights.h"
 #include <string.h>
 #define BUFFER_SIZE 50
-//coming flights****************************************************************
+//flights****************************************************************
 
-p_coming_flight create_list_coming_flight(void){
-    coming_flight* aux;
-    aux = (p_coming_flight) malloc(sizeof(coming_flight));
+p_flight create_list_flight(void){
+    p_flight aux;
+    aux = (p_flight) malloc(sizeof(flights_struct));
     if(aux != NULL){
         aux->next = NULL;
     }
     return aux;
 }
 
-void print_coming_flights_list(p_coming_flight head){
-    p_coming_flight current=head->next;
+void print_flights_list(p_flight head){
+    p_flight current=head->next;
     while (current){
         printf("->flight code %s init: %d eta: %d fuel: %d \n",current->flight_code,current->init,current->ETA,current->fuel);
         current=current->next;
     }
 }
 
-void add_coming_flight(p_coming_flight head,char* flight_code,int init,int ETA,int fuel){
-    p_coming_flight b4_insert_place;
-    p_coming_flight aux = (p_coming_flight) malloc(sizeof(coming_flight));
-    strcpy(aux->flight_code,flight_code);
-    aux->init=init;
-    aux->ETA=ETA;
-    aux->fuel=fuel;
-    b4_insert_place=search_place_to_insert_coming(head,init);
-    aux->next=b4_insert_place->next;
-    b4_insert_place->next=aux;
+void add_flight(p_flight head,char* flight_code,int init,int takeoff,int ETA,int fuel,char type){
+  p_flight current=head;
+  p_flight aux = (p_flight) malloc(sizeof(flights_struct));
+  strcpy(aux->flight_code,flight_code);
+  aux->init=init;
+  aux->ETA=ETA;
+  aux->fuel=fuel;
+  aux->type=type;
+  aux->takeoff=takeoff;
+  while(current->next!=NULL && current->next->init < aux->init){
+    current = current->next;
+  }
+  aux->next = current->next;
+  current->next = aux;
 }
 
-p_coming_flight search_place_to_insert_coming(p_coming_flight head,int init){
-    p_coming_flight current=head;
-    p_coming_flight next;
-    if(current->next!=NULL){
-      next=current->next;
-      while(next->next!=NULL){
-          if(current->init<init && next->init>init){
-              return current;
-          }
-          current=next;
-          next=next->next;
-      }
-      return next;
-    }
-    else{
-        return current;
-    }
-}
-
-void remove_first_coming_flight(p_coming_flight head){
-    p_coming_flight aux=head->next;
+void remove_first_flight(p_flight head){
+    p_flight aux=head->next;
     head->next =head->next->next;
     free (aux);
 }
 
-//leaving flights***************************************************************
-
-p_leaving_flight create_list_leaving_flight(void){
-    /* Creates a linked list for locals*/
-    p_leaving_flight aux;
-    aux = (p_leaving_flight) malloc(sizeof(leaving_flight));
-    if(aux != NULL){
-        aux->next = NULL;
-    }
-    return aux;
-}
-
-void print_leaving_flights_list(p_leaving_flight head){
-    p_leaving_flight current=head->next;
-    while (current){
-        printf("->flight code %s init: %d takeoff: %d \n",current->flight_code,current->init,current->takeoff);
-        current=current->next;
-    }
-}
-
-void add_leaving_flight(p_leaving_flight head,char* flight_code,int init,int takeoff){
-    p_leaving_flight b4_insert_place;
-    p_leaving_flight aux = (p_leaving_flight) malloc(sizeof(leaving_flight));
-    strcpy(aux->flight_code,flight_code);
-    aux->init=init;
-    aux->takeoff=takeoff;
-    b4_insert_place=search_place_to_insert_leaving(head,init);
-    aux->next=b4_insert_place->next;
-    b4_insert_place->next=aux;
-}
-
-p_leaving_flight search_place_to_insert_leaving(p_leaving_flight head,int init){
-    p_leaving_flight current=head;
-    p_leaving_flight next;
-    if(current->next!=NULL){
-      next=current->next;
-      while(next->next!=NULL){
-          if(current->init<=init && next->init>=init){
-              return current;
-          }
-          current=next;
-          next=next->next;
-      }
-      return next;
-    }
-    else{
-      return current;
-    }
-  }
-
-void remove_first_leaving_flight(p_leaving_flight head){
-  p_leaving_flight aux=head->next;
-  head->next =head->next->next;
-  free (aux);
-}
 
 //******************************Slot Functions**********************************
 
@@ -171,7 +101,7 @@ void add_slot_flight(p_list_slot head,p_slot slot){
   p_list_slot current=head;
   p_list_slot aux = (p_list_slot) malloc (sizeof(p_list_slot));
   aux->flight_slot=slot;
-  while (current->next!=NULL && current->next->flight_slot->priority < aux->flight_slot->priority) {
+  while(current->flight_slot->urg==1 || (current->next!=NULL && current->next->flight_slot->priority < aux->flight_slot->priority)){
       current = current->next;
   }
   aux->next = current->next;
@@ -197,21 +127,28 @@ p_list_slot find_slot(p_list_slot head,int slot){
   return NULL;
 }
 
-void remove_add(p_list_slot head,p_list_slot head_urg,int slot){
-  p_list_slot currentn=head,currentu=head_urg,antn;
-  p_list_slot auxu;
-  while(currentn->flight_slot->slot!=slot){
-    antn=currentn;
-    currentn=currentn->next;
+void remove_add_urgency(p_list_slot head,int slot){
+  p_list_slot current=head,ant;
+  p_list_slot aux;
+  while(current->flight_slot->slot!=slot){
+      ant=current;
+      current=current->next;
   }
-  antn->next=currentn->next;
-  auxu=currentn;
-  while (currentu->next!=NULL) {
-    if(currentu->next->flight_slot->priority < auxu->flight_slot->priority)
-      currentu = currentu->next;
+  ant->next=current->next;
+  aux=current;
+  current=head;
+  if(current->next->flight_slot->urg==1){
+      while(current->next!=NULL && current->next->flight_slot->urg==1 && current->next->flight_slot->priority<aux->flight_slot->priority){
+          ant=current;
+          current=current->next;
+      }
+      aux->next=current->next;
+      current->next=aux;
   }
-  auxu->next = currentu->next;
-  currentu->next = auxu;
+  else{
+      aux->next=current->next;
+      current->next=aux;
+  }
 }
 
 void reorder(p_list_slot head){

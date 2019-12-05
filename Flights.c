@@ -101,8 +101,11 @@ void add_slot_flight(p_list_slot head,p_slot slot){
   p_list_slot current=head;
   p_list_slot aux = (p_list_slot) malloc (sizeof(p_list_slot));
   aux->flight_slot=slot;
-  while(current->flight_slot->urg==1 || (current->next!=NULL && current->next->flight_slot->priority < aux->flight_slot->priority)){
+  while(current->flight_slot->urg==1){
       current = current->next;
+  }
+  while(current->next!=NULL && current->next->flight_slot->priority < aux->flight_slot->priority){
+    current=current->next;
   }
   aux->next = current->next;
   current->next = aux;
@@ -110,9 +113,7 @@ void add_slot_flight(p_list_slot head,p_slot slot){
 
 void remove_first_slot(p_list_slot head){
   p_list_slot aux=head->next;
-  if(aux->next!=NULL){
-    head->next=aux->next;
-  }
+  head->next=aux->next;
   free(aux);
 }
 

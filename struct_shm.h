@@ -45,7 +45,8 @@ typedef struct{
 void update_statistic();
 
 //log functions*****************************************************************
-int new_command(FILE *f, char* command,Sta_time* shared_var_stat_time,p_config configuration);
+void right_command(FILE *f, char* command);
+void wrong_command(FILE *f, char* command);
 char* current_time();
 int verify_command(char* command,Sta_time* shared_var_stat_time,p_config configuration);
 int verify_fuel(int fuel,int eta,int init);
@@ -55,6 +56,7 @@ void log_emergency_landing(FILE *f,char* flight);
 void log_holding(FILE *f,char* flight,int time_holding);
 void log_segint(FILE *f,char* s);
 void log_redirected(FILE *f,char* flight,int fuel);
+void log_rejected(FILE *f,char* s);
 void log_begin_landing(FILE *f,char* flight,char* pista);
 void log_end_landing(FILE *f,char* flight,char* pista);
 void log_begin_Departure(FILE *f,char* flight,char* pista);

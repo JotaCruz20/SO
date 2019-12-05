@@ -28,7 +28,7 @@ int fd_pipe;//pipe id
 int msqid_flights;//message queue ids
 Sta_time* shared_var_stat_time;//shared memory
 p_slot shm_slots;//shared memory
-pid_t pid_manager;//id child
+pid_t pid_manager,pid_tower;//id child
 sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pistas_departure,*sem_ll,*sem_esta_time;//id sems
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
 pthread_t threads_functions[6];//id da thread que cria threads
@@ -54,15 +54,17 @@ void terminate(){
   int i,nbits;
   char message[10000],code[6];
   if(getpid()==pid_manager){
-    //CLOSE CONTROL TOWER******************
-    wait(NULL);
-    printf("A Torre fechou.Posso continuar\n");
+    pthread_cancel(threads_functions[0]);
     //CLOSE PIPE***************************
     printf("Closing pipe\n");
     do{
       memset(code,0,10000);
       nbits=read(fd_pipe,message,sizeof(message));
-      log_pipe_program(f_log,message);
+      if(nbits>0){
+        sem_wait(sem_log);
+        log_pipe_program(f_log,message);
+        sem_post(sem_log);
+      }
     }while(nbits>0);
     close(fd_pipe);
     printf("Closing pipe ended\n");
@@ -74,7 +76,7 @@ void terminate(){
       pthread_join(threads_flight[i],NULL);
   	}
     printf("Closing threads_functions\n");
-    for(i=0;i<4;i++){
+    for(i=1;i<4;i++){
       pthread_cancel(threads_functions[i]);
   	}
     printf("Closing threads ended\n");
@@ -104,10 +106,11 @@ void terminate(){
     sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
     printf("Closing semaphores ended\n");
-    exit(0);
-  }
-  else{
-    printf("A Torre fechou\n");
+
+    //CLOSE CONTROL TOWER******************
+    kill(pid_tower,SIGKILL);
+    printf("A Torre fechou.Posso continuar\n");
+    //CLOSE MANAGER***************
     exit(0);
   }
 }
@@ -122,7 +125,7 @@ void sigusr1(){
 }
 
 void initialize_signals(){
-  //signal(SIGINT,terminate);
+  signal(SIGINT,terminate);
   signal(SIGHUP,SIG_IGN);
   signal(SIGQUIT,SIG_IGN);
   signal(SIGILL,SIG_IGN);
@@ -130,7 +133,6 @@ void initialize_signals(){
   signal(SIGABRT,SIG_IGN);
   //signal(SIGEMT,SIG_IGN);
   signal(SIGFPE,SIG_IGN);
-  signal(SIGKILL,SIG_IGN);
   signal(SIGBUS,SIG_IGN);
   signal(SIGSYS,SIG_IGN);
   signal(SIGPIPE,SIG_IGN);
@@ -237,6 +239,8 @@ void departure(p_slot aux_slot,char* pista){
 }
 
 void* cthreads_leaving(void* flight){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   char code[6];
   p_slot slot_aux;
   flights_struct my_flight=*((flights_struct*)flight);
@@ -261,6 +265,8 @@ void* cthreads_leaving(void* flight){
 }
 
 void* try_fuel(void* flight){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   msq_flights msq;
   p_list_slot aux;
   while(1){
@@ -293,6 +299,8 @@ void* try_fuel(void* flight){
 }
 
 void* cthreads_coming(void* flight){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   flights_struct my_flight=*((flights_struct*)flight);//para ficar como coming_flight
   p_slot slot_aux;
   msq_flights msq = {FLIGHTS,'a',0,my_flight.ETA,my_flight.fuel};
@@ -315,6 +323,8 @@ void* cthreads_coming(void* flight){
 }
 
 void* thread_creates_threads(void* id){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   int time_passed;
   time_t time_now;
   flights_struct c_flight;
@@ -441,6 +451,8 @@ void initialize_shm(){
 //**********************************TC******************************************
 
 void* receive_msq_urgency(void* id){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   msq_flights msq;
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
@@ -457,7 +469,8 @@ void holding(int slot){
   int random;
   srand(time(NULL));
   p_list_slot aux=find_slot(list_slot_flight,slot);
-  aux->flight_slot->nholds_urg+=1;
+  if(aux->flight_slot->urg==1)
+    aux->flight_slot->nholds_urg+=1;
   aux->flight_slot->nholds+=1;
   random=rand()%(configurations->hld_max - configurations->hld_min + 1) + configurations->hld_min;
   printf("holding: %d\n",random);
@@ -471,6 +484,8 @@ void holding(int slot){
 }
 
 void* update_fuel(void* id){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   p_list_slot aux;
   while(1){
     pthread_mutex_lock(&mutex_ll);
@@ -481,6 +496,9 @@ void* update_fuel(void* id){
       }
       if(aux->flight_slot->fuel==0 && aux->flight_slot->type=='a'){
         aux->flight_slot->redirected=1;
+        sem_wait(sem_esta_time);
+        shared_var_stat_time->statistics.redirected_flights+=1;
+        sem_post(sem_esta_time);
       }
       aux=aux->next;
     }
@@ -490,6 +508,8 @@ void* update_fuel(void* id){
 }
 
 void* departures_arrivals(void* id){
+  initialize_signals();
+  signal(SIGUSR1,SIG_IGN);
   int time_passed,valueD,valueA,valueL,valueR;
   time_t time_now;
   p_list_slot aux;
@@ -657,6 +677,7 @@ void* departures_arrivals(void* id){
 }
 
 void ControlTower(){
+  initialize_signals();
   char* stime = current_time();
   int slot=0;
   msq_flights msq;
@@ -687,26 +708,30 @@ void ControlTower(){
 //**********************************MAIN****************************************
 
 int main(){
-  int nbits,test_command,i=0,ETA,fuel,init,takeoff,counter=0;
-  char message[7000],code[70],keep_code[70],f_code[10];
+  int nbits,test_command,i=0,ETA,fuel,init,takeoff,counter=0,counter_arrivals=0,counter_departures=0;
+  char message[7000],code[70],keep_code[70],f_code[10],buffer[70];
   char *token;
   f_log=fopen("log.txt","w");
   configurations=inicia("config.txt");
+  signal(SIGINT,SIG_IGN);
   initialize_shm();
   initialize_semaphores();
-  initialize_signals();
   initialize_MSQ();
   initialize_pipe();
   initialize_flights();
   initialize_thread_create();
   pid_manager=getpid();
+  initialize_signals();
   if(fork()==0){
+    pid_tower=getpid();
     ControlTower();
     exit(0);
   }
   while(1){
     nbits = read(fd_pipe,message,sizeof(message));
+    counter=0;
     if(nbits > 0){
+      message[nbits]='\0';
       while(message[counter]!='\0'){
         memset(code,0,70);
         memset(keep_code,0,80);
@@ -719,12 +744,14 @@ int main(){
         strcpy(keep_code,code);
         sem_wait(sem_log);
         sem_wait(sem_esta_time);
-        test_command=new_command(f_log,code,shared_var_stat_time,configurations);
+        test_command=verify_command(code,shared_var_stat_time,configurations);
         sem_post(sem_log);
         sem_post(sem_esta_time);
         if(test_command==1){
+          strcpy(buffer,keep_code);
           token=strtok(keep_code," ");
-          if(strcmp(token,"DEPARTURE")==0){
+          if(strcmp(token,"DEPARTURE")==0 && counter_departures<=configurations->D){
+            right_command(f_log,buffer);
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
@@ -738,13 +765,23 @@ int main(){
                 takeoff=atoi(token);
               }
               i++;
+            }
+            add_flight(flights,f_code,init,takeoff,0,0,'D');
+            counter_departures++;
+            sem_wait(sem_esta_time);
+            shared_var_stat_time->statistics.created_flights+=1;
+            sem_post(sem_esta_time);
           }
-          add_flight(flights,f_code,init,takeoff,0,0,'D');
-          sem_wait(sem_esta_time);
-          shared_var_stat_time->statistics.created_flights+=1;
-          sem_post(sem_esta_time);
+          else if(strcmp(token,"DEPARTURE")==0 && counter_departures>configurations->D){
+            sem_wait(sem_esta_time);
+            shared_var_stat_time->statistics.rejected_flights+=1;
+            sem_post(sem_esta_time);
+            sem_wait(sem_log);
+            log_rejected(f_log,buffer);
+            sem_post(sem_log);
           }
-          else{
+          else if(strcmp(token,"ARRIVAL")==0 && counter_arrivals<=configurations->A){
+            right_command(f_log,buffer);
             i=0;
             while(token!=NULL){
               token=strtok(NULL," ");
@@ -763,10 +800,24 @@ int main(){
               i++;
             }
             add_flight(flights,f_code,init,0,ETA,fuel,'A');
+            counter_arrivals++;
             sem_wait(sem_esta_time);
             shared_var_stat_time->statistics.created_flights+=1;
             sem_post(sem_esta_time);
           }
+          else if(strcmp(token,"ARRIVAL")==0 && counter_departures>configurations->D){
+            sem_wait(sem_esta_time);
+            shared_var_stat_time->statistics.rejected_flights+=1;
+            sem_post(sem_esta_time);
+            sem_wait(sem_log);
+            log_rejected(f_log,buffer);
+            sem_post(sem_log);
+          }
+        }
+        else{
+          sem_wait(sem_log);
+          wrong_command(f_log,keep_code);
+          sem_post(sem_log);
         }
       }
     }

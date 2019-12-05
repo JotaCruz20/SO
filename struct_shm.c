@@ -128,22 +128,19 @@ int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configur
     return 0;
 }
 
-int new_command(FILE *f, char* command,Sta_time* shared_var_sta_time,p_config configuration){
+void wrong_command(FILE *f, char* command){
   char* stime = current_time();
-  char keep_command[80];
-  strcpy(keep_command,command);
-  if(verify_command(command, shared_var_sta_time,configuration)==0){
-    printf("%s WRONG COMMAND => %s\n",stime,keep_command);
-    fprintf(f,"%s WRONG COMMAND => %s\n",stime,keep_command);
-    fflush(f);
-    return 0;
-  }
-  else{
-    printf("%s NEW COMMAND => %s\n",stime, keep_command);
-    fprintf(f,"%s NEW COMMAND => %s\n",stime, keep_command);
-    fflush(f);
-    return 1;
-  }
+  printf("%s WRONG COMMAND => %s\n",stime,command);
+  fprintf(f,"%s WRONG COMMAND => %s\n",stime,command);
+  fflush(f);
+}
+
+
+void right_command(FILE *f, char* command){
+  char* stime = current_time();
+  printf("%s NEW COMMAND => %s\n",stime,command);
+  fprintf(f,"%s NEW COMMAND => %s\n",stime,command);
+  fflush(f);
 }
 
 void log_rejected(FILE *f,char* s){

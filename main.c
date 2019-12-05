@@ -125,7 +125,7 @@ void sigusr1(){
 }
 
 void initialize_signals(){
-  signal(SIGINT,terminate);
+  signal(SIGINT,SIG_IGN);
   signal(SIGHUP,SIG_IGN);
   signal(SIGQUIT,SIG_IGN);
   signal(SIGILL,SIG_IGN);
@@ -151,7 +151,7 @@ void initialize_signals(){
   signal(SIGPROF,SIG_IGN);
   signal(SIGWINCH,SIG_IGN);
   //signal(SIGLOST,SIG_IGN);
-  signal(SIGUSR1,sigusr1);
+  signal(SIGUSR1,SIG_IGN);
   signal(SIGUSR2,SIG_IGN);
 
 }
@@ -239,8 +239,6 @@ void departure(p_slot aux_slot,char* pista){
 }
 
 void* cthreads_leaving(void* flight){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   char code[6];
   p_slot slot_aux;
   flights_struct my_flight=*((flights_struct*)flight);
@@ -265,8 +263,6 @@ void* cthreads_leaving(void* flight){
 }
 
 void* try_fuel(void* flight){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   msq_flights msq;
   p_list_slot aux;
   while(1){
@@ -299,8 +295,6 @@ void* try_fuel(void* flight){
 }
 
 void* cthreads_coming(void* flight){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   flights_struct my_flight=*((flights_struct*)flight);//para ficar como coming_flight
   p_slot slot_aux;
   msq_flights msq = {FLIGHTS,'a',0,my_flight.ETA,my_flight.fuel};
@@ -323,8 +317,6 @@ void* cthreads_coming(void* flight){
 }
 
 void* thread_creates_threads(void* id){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   int time_passed;
   time_t time_now;
   flights_struct c_flight;
@@ -451,8 +443,6 @@ void initialize_shm(){
 //**********************************TC******************************************
 
 void* receive_msq_urgency(void* id){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   msq_flights msq;
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
@@ -484,8 +474,6 @@ void holding(int slot){
 }
 
 void* update_fuel(void* id){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   p_list_slot aux;
   while(1){
     pthread_mutex_lock(&mutex_ll);
@@ -508,8 +496,6 @@ void* update_fuel(void* id){
 }
 
 void* departures_arrivals(void* id){
-  initialize_signals();
-  signal(SIGUSR1,SIG_IGN);
   int time_passed,valueD,valueA,valueL,valueR;
   time_t time_now;
   p_list_slot aux;
@@ -677,7 +663,6 @@ void* departures_arrivals(void* id){
 }
 
 void ControlTower(){
-  initialize_signals();
   char* stime = current_time();
   int slot=0;
   msq_flights msq;
@@ -713,7 +698,6 @@ int main(){
   char *token;
   f_log=fopen("log.txt","w");
   configurations=inicia("config.txt");
-  signal(SIGINT,SIG_IGN);
   initialize_shm();
   initialize_semaphores();
   initialize_MSQ();
@@ -722,8 +706,10 @@ int main(){
   initialize_thread_create();
   pid_manager=getpid();
   initialize_signals();
+  signal(SIGINT,terminate);
   if(fork()==0){
     pid_tower=getpid();
+    signal(SIGUSR1,sigusr1);
     ControlTower();
     exit(0);
   }

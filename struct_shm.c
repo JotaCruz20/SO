@@ -1,3 +1,5 @@
+//João Alexandre Santos Cruz 2018288
+//André Cristóvão Ferreira da Silva 2018277921
 #include "struct_shm.h"
 #include <time.h>
 #include <stdio.h>

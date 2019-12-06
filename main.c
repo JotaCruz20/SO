@@ -1,5 +1,5 @@
 //João Alexandre Santos Cruz 2018288
-//André Silva
+//André Cristóvão Ferreira da Silva 2018277921
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -27,13 +27,13 @@
 int shmid_stat_time,shmid_slot;//shared memory ids
 int counter_threads=0;//counters
 int fd_pipe;//pipe id
-int msqid_flights;//message queue ids
+int msqid_flights;//message queue id
 Sta_time* shared_var_stat_time;//shared memory
 p_slot shm_slots;//shared memory
-pid_t pid_manager,pid_tower;//id child
+pid_t pid_manager,pid_tower;//ids processos
 sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pistas_departure,*sem_ll,*sem_esta_time;//id sems
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
-pthread_t threads_functions[5];//id da thread que cria threads
+pthread_t threads_functions[6];//id da thread que cria threads
 pthread_t *threads_flight;//array dos ids threads
 FILE* f_log;
 p_config configurations;//configs
@@ -56,7 +56,7 @@ void terminate(){//função para o Ctrl+C
   int i,nbits;
   char message[10000],code[6];
   if(getpid()==pid_manager){
-    pthread_cancel(threads_functions[0]);
+    pthread_cancel(threads_functions[0]);//cancela a thread que faz threads
     //CLOSE PIPE***************************
     printf("\nThe program will end. ^C received.\n");
     #ifdef DEBUG
@@ -84,7 +84,7 @@ void terminate(){//função para o Ctrl+C
     #ifdef DEBUG
     printf("->Closing thread functions.\n");
     #endif
-    for(i=1;i<4;i++){
+    for(i=1;i<6;i++){
       pthread_cancel(threads_functions[i]);
   	}
     //CLOSE SHARED MEMORIES******************
@@ -115,6 +115,10 @@ void terminate(){//função para o Ctrl+C
     sem_unlink("PISTAS");
     sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
+    //CLOSE MESSAGE QUEUE******************
+    if(msqid_flights>=0){//remove message queue
+      shmctl(msqid_flights,IPC_RMID,NULL);
+    }
     //CLOSE CONTROL TOWER******************
     #ifdef DEBUG
     printf("->Killing Control Tower.");
@@ -538,6 +542,33 @@ void holding(int slot){//trata dos holds dos voos
   reorder(list_slot_flight);
 }
 
+void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 5 voos a frente deles
+  p_list_slot aux;
+  int counter,time_passed;
+  time_t time_now;
+  while(1){
+    aux=list_slot_flight;
+    counter=0;
+    sem_wait(sem_ll);
+    if(aux!=NULL){
+      time_now=time(NULL);
+      time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+      while(aux->next!=NULL){
+        aux=aux->next;
+        counter+=1;
+        if(counter>=5 && time_passed>aux->flight_slot->priority/2){
+          holding(aux->flight_slot->slot);
+          #ifdef DEBUG
+          printf("dei hold aqui\n");
+          #endif
+        }
+      }
+    }
+    sem_post(sem_ll);
+  }
+  pthread_exit(NULL);
+}
+
 void* update_fuel(void* id){//thread que vai ver dos redirected flights
   p_list_slot aux;
   while(1){
@@ -835,6 +866,10 @@ void ControlTower(){//torre de controlo
     exit(-1);
   }
   if(pthread_create(&threads_functions[4],NULL,departures_arrivals,NULL)!=0){
+    perror("error in receive_msq_urgency");
+    exit(-1);
+  }
+  if(pthread_create(&threads_functions[5],NULL,hold_five,NULL)!=0){
     perror("error in receive_msq_urgency");
     exit(-1);
   }

@@ -1,3 +1,5 @@
+//João Alexandre Santos Cruz 2018288
+//André Cristóvão Ferreira da Silva 2018277921
 //struct para os voos que vao ser criados
 typedef struct f_node* p_flight;
 typedef struct f_node{

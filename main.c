@@ -117,7 +117,7 @@ void sigusr1(){
   if(getpid()!=pid_manager){
     sem_wait(sem_esta_time);
     update_statistic(&(shared_var_stat_time->statistics));
-    printf("\nStatistics:\n\n\t->Total created flights:%d\n\t->Total landed flights: %d\n\t->Average wait time to land: %f\n\t->Total departed flights: %d\n\t->Average wait time to depart: %f\n\t->Average number of holdings on a flight: %f\n\t->Average number of holdings on an emergency flight: %f\n\t->Total number of redirected flights: %d\n\t->Total number of rejected flights: %d\n",shared_var_stat_time->statistics.created_flights,shared_var_stat_time->statistics.landed_flights,shared_var_stat_time->statistics.average_wait_time_landing,shared_var_stat_time->statistics.take_of_flights,shared_var_stat_time->statistics.average_wait_time_taking_of,shared_var_stat_time->statistics.average_number_holds,shared_var_stat_time->statistics.average_number_holds_urgency,shared_var_stat_time->statistics.redirected_flights,shared_var_stat_time->statistics.rejected_flights);
+    printf("\nStatistics:\n\n\t->Total created flights:%d\n\t->Total landed flights: %d\n\t->Average wait time to land: %f\n\t->Total departed flights: %d\n\t->Average wait time to depart: %f\n\t->Average number of holdings on a flight: %f\n\t->Average number of holdings on an emergency flight: %f\n\t->Total number of redirected flights: %d\n\t->Total number of rejected flights: %d\n\n",shared_var_stat_time->statistics.created_flights,shared_var_stat_time->statistics.landed_flights,shared_var_stat_time->statistics.average_wait_time_landing,shared_var_stat_time->statistics.take_of_flights,shared_var_stat_time->statistics.average_wait_time_taking_of,shared_var_stat_time->statistics.average_number_holds,shared_var_stat_time->statistics.average_number_holds_urgency,shared_var_stat_time->statistics.redirected_flights,shared_var_stat_time->statistics.rejected_flights);
     sem_post(sem_esta_time);
   }
 }
@@ -157,7 +157,7 @@ void initialize_signals(){
 //*******************************THREADS****************************************
 
 void arrive(p_slot aux_slot,char* pista){
-  int time_passed,time_of_wait_to_leave;
+  double time_passed,time_of_wait_to_leave;
   int time_now=time(NULL);
   sem_wait(sem_pistas_landing);
   sem_wait(sem_pistas_departure);
@@ -188,17 +188,19 @@ void arrive(p_slot aux_slot,char* pista){
   sem_post(sem_pistas_landing);
   sem_post(sem_pistas_departure);
   sem_wait(sem_esta_time);
+  //printf("holds: %d urg:%d\n",aux_slot->nholds,aux_slot->nholds_urg);
   shared_var_stat_time->statistics.sum_number_holds_urgency+=(aux_slot->nholds_urg);
   shared_var_stat_time->statistics.sum_number_holds+=(aux_slot->nholds);
   shared_var_stat_time->statistics.landed_flights+=1;
   time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
   time_of_wait_to_leave=time_passed-(aux_slot->initial_eta*1000/configurations->ut);
+  printf("time wait to leave: %lf\n",time_of_wait_to_leave);
   shared_var_stat_time->statistics.sum_wait_time_landing+=time_of_wait_to_leave;
   sem_post(sem_esta_time);
 }
 
 void departure(p_slot aux_slot,char* pista){
-  int time_of_wait_to_take_of,time_passed;
+  double time_of_wait_to_take_of,time_passed;
   int time_now=time(NULL);
   sem_wait(sem_pistas_landing);
   sem_wait(sem_pistas_departure);
@@ -232,6 +234,7 @@ void departure(p_slot aux_slot,char* pista){
   shared_var_stat_time->statistics.take_of_flights+=1;
   time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
   time_of_wait_to_take_of=time_passed-(aux_slot->takeoff/configurations->ut);
+  //printf("time wait to takeoff: %lf\n",time_of_wait_to_take_of);
   shared_var_stat_time->statistics.sum_wait_time_taking_of+=time_of_wait_to_take_of;
   sem_post(sem_esta_time);
 }
@@ -474,7 +477,7 @@ void holding(int slot){
   if(aux->flight_slot->urg==1)
     aux->flight_slot->nholds_urg+=1;
   aux->flight_slot->nholds+=1;
-  printf("urg:%d not:%d\n",aux->flight_slot->nholds_urg,aux->flight_slot->nholds);
+  //printf("urg:%d not:%d\n",aux->flight_slot->nholds_urg,aux->flight_slot->nholds);
   reorder(list_slot_flight);
 }
 

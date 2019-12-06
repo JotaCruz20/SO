@@ -10,8 +10,8 @@
 void update_statistic(p_sta statistic){
   if(statistic->landed_flights!=0){
     statistic->average_wait_time_landing=statistic->sum_wait_time_landing/statistic->landed_flights;
-    statistic->average_number_holds=statistic->sum_number_holds/statistic->landed_flights;
-    statistic->average_number_holds_urgency=statistic->sum_number_holds_urgency/statistic->landed_flights;
+    statistic->average_number_holds=statistic->sum_number_holds*1.0/statistic->landed_flights;
+    statistic->average_number_holds_urgency=statistic->sum_number_holds_urgency*1.0/statistic->landed_flights;
   }
   else{
     statistic->average_wait_time_landing=0;

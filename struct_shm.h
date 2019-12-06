@@ -13,7 +13,7 @@ typedef struct statistic{
     int created_flights,landed_flights,take_of_flights;
 
     //average waiting times
-    int sum_wait_time_landing,sum_wait_time_taking_of;
+    double sum_wait_time_landing,sum_wait_time_taking_of;
     double average_wait_time_landing,average_wait_time_taking_of;
 
     //average maneuvers number

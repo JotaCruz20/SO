@@ -1,3 +1,5 @@
+//João Alexandre Santos Cruz 2018288
+//André Silva
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -17,7 +19,7 @@
 #include <pthread.h>
 #include "struct_shm.h"
 #define PIPE_NAME  "named_pipe"
-#define DEBUG
+
 #define SLOT 2
 #define FLIGHTS 1
 #define URGENCY 3
@@ -31,17 +33,16 @@ p_slot shm_slots;//shared memory
 pid_t pid_manager,pid_tower;//id child
 sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pistas_departure,*sem_ll,*sem_esta_time;//id sems
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
-pthread_t threads_functions[6];//id da thread que cria threads
+pthread_t threads_functions[5];//id da thread que cria threads
 pthread_t *threads_flight;//array dos ids threads
-pthread_t threads_arrivals[2],threads_departures[2];
 FILE* f_log;
 p_config configurations;//configs
 p_flight flights;//arrival flights
-p_list_slot list_slot_flight;
+p_list_slot list_slot_flight;//LL com informações dos voos
 
 //*********************************MSQ******************************************
 
-void initialize_MSQ(){
+void initialize_MSQ(){//inicializa message queue
   if((msqid_flights = msgget(IPC_PRIVATE, IPC_CREAT|0777)) < 0){
     perror("Cant create message queue");
     exit(-1);
@@ -50,7 +51,7 @@ void initialize_MSQ(){
 
 //******************************SIGNALS*****************************************
 
-void terminate(){
+void terminate(){//função para o Ctrl+C
   signal(SIGINT,SIG_IGN);
   int i,nbits;
   char message[10000],code[6];
@@ -58,7 +59,9 @@ void terminate(){
     pthread_cancel(threads_functions[0]);
     //CLOSE PIPE***************************
     printf("\nThe program will end. ^C received.\n");
+    #ifdef DEBUG
     printf("->Closing pipe:\n");
+    #endif
     do{
       memset(code,0,10000);
       nbits=read(fd_pipe,message,sizeof(message));
@@ -72,16 +75,22 @@ void terminate(){
     //signal de quando as threads todas acabarem eq continua aqui
     fclose(f_log);
     //CLOSING THREADS***************************
+    #ifdef DEBUG
     printf("->Waiting for initialized threads to end.\n");
+    #endif
     for(i=0;i<counter_threads;i++){
       pthread_join(threads_flight[i],NULL);
   	}
+    #ifdef DEBUG
     printf("->Closing thread functions.\n");
+    #endif
     for(i=1;i<4;i++){
       pthread_cancel(threads_functions[i]);
   	}
     //CLOSE SHARED MEMORIES******************
+    #ifdef DEBUG
     printf("->Deleting shared memories.\n");
+    #endif
     if (shmid_stat_time >= 0){ // remove shared memory
       shmctl(shmid_stat_time, IPC_RMID, NULL);
     }
@@ -89,7 +98,9 @@ void terminate(){
       shmctl(shmid_slot, IPC_RMID, NULL);
     }
     //CLOSE SEMAPHORES**************************
+    #ifdef DEBUG
     printf("->Closing semaphores.\n");
+    #endif
     sem_close(sem_log);
     sem_close(sem_01L);
     sem_close(sem_01R);
@@ -105,7 +116,9 @@ void terminate(){
     sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
     //CLOSE CONTROL TOWER******************
+    #ifdef DEBUG
     printf("->Killing Control Tower.");
+    #endif
     kill(pid_tower,SIGKILL);
     //CLOSE MANAGER***************
     printf("->Ending execution.");
@@ -113,7 +126,7 @@ void terminate(){
   }
 }
 
-void sigusr1(){
+void sigusr1(){//print estatiticas
   if(getpid()!=pid_manager){
     sem_wait(sem_esta_time);
     update_statistic(&(shared_var_stat_time->statistics));
@@ -123,7 +136,7 @@ void sigusr1(){
 }
 
 void initialize_signals(){
-  signal(SIGINT,SIG_IGN);
+  signal(SIGINT,terminate);
   signal(SIGHUP,SIG_IGN);
   signal(SIGQUIT,SIG_IGN);
   signal(SIGILL,SIG_IGN);
@@ -161,7 +174,7 @@ void arrive(p_slot aux_slot,char* pista){
   int time_now=time(NULL);
   sem_wait(sem_pistas_landing);
   sem_wait(sem_pistas_departure);
-  if(strcmp(pista,"28L")==0){
+  if(strcmp(pista,"28L")==0){//serve para saber em que pista aterrar
     sem_wait(sem_28L);
     sem_wait(sem_log);
     log_begin_landing(f_log,aux_slot->code,"28L");
@@ -188,13 +201,15 @@ void arrive(p_slot aux_slot,char* pista){
   sem_post(sem_pistas_landing);
   sem_post(sem_pistas_departure);
   sem_wait(sem_esta_time);
-  //printf("holds: %d urg:%d\n",aux_slot->nholds,aux_slot->nholds_urg);
+  #ifdef DEBUG
+  printf("holds: %d urg:%d\n",aux_slot->nholds,aux_slot->nholds_urg);
+  #endif
+  //atualiza as estatiticas
   shared_var_stat_time->statistics.sum_number_holds_urgency+=(aux_slot->nholds_urg);
   shared_var_stat_time->statistics.sum_number_holds+=(aux_slot->nholds);
   shared_var_stat_time->statistics.landed_flights+=1;
   time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
-  time_of_wait_to_leave=time_passed-(aux_slot->initial_eta*1000/configurations->ut);
-  printf("time wait to leave: %lf\n",time_of_wait_to_leave);
+  time_of_wait_to_leave=time_passed-(aux_slot->initial_eta/configurations->ut);
   shared_var_stat_time->statistics.sum_wait_time_landing+=time_of_wait_to_leave;
   sem_post(sem_esta_time);
 }
@@ -204,7 +219,7 @@ void departure(p_slot aux_slot,char* pista){
   int time_now=time(NULL);
   sem_wait(sem_pistas_landing);
   sem_wait(sem_pistas_departure);
-  if(strcmp(pista,"01L")==0){
+  if(strcmp(pista,"01L")==0){//serve para ver em que pistas aterrar
     sem_wait(sem_01L);
     sem_wait(sem_log);
     log_begin_Departure(f_log,aux_slot->code,"01L");
@@ -231,10 +246,10 @@ void departure(p_slot aux_slot,char* pista){
   sem_post(sem_pistas_landing);
   sem_post(sem_pistas_departure);
   sem_wait(sem_esta_time);
+  //atualiza estatisticas
   shared_var_stat_time->statistics.take_of_flights+=1;
   time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
   time_of_wait_to_take_of=time_passed-(aux_slot->takeoff/configurations->ut);
-  //printf("time wait to takeoff: %lf\n",time_of_wait_to_take_of);
   shared_var_stat_time->statistics.sum_wait_time_taking_of+=time_of_wait_to_take_of;
   sem_post(sem_esta_time);
 }
@@ -244,6 +259,7 @@ void* cthreads_leaving(void* flight){
   p_slot slot_aux;
   flights_struct my_flight=*((flights_struct*)flight);
   msq_flights msq;
+  //por os dados na message queue
   msq.msgtype=FLIGHTS;
   msq.ETA=0;
   msq.fuel=0;
@@ -251,10 +267,14 @@ void* cthreads_leaving(void* flight){
   msq.type='d';
   strcpy(msq.slot.code,my_flight.flight_code);
   strcpy(code,my_flight.flight_code);
+  //enviar mensagem e esperar para receber slot com as informações
   msgsnd(msqid_flights,&msq,sizeof(msq) - sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  #ifdef DEBUG
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  #endif
   slot_aux=msq.slot_buffer;
+  //testar qnd acaba
   while(slot_aux->finish!=1){
     usleep(configurations->T*10000);
   }
@@ -267,29 +287,35 @@ void* try_fuel(void* flight){
   msq_flights msq;
   p_list_slot aux;
   while(1){
+    //testa se a lista esta vazia ou nao
     if(list_slot_flight->next!=NULL){
       aux=list_slot_flight;
     }
     else{
       aux=NULL;
     }
+    //caso nao esteja vai decrementar o fuel de cada voo do tipo arrival
     if(aux!=NULL){
       pthread_mutex_lock(&mutex_ll);
       while(aux->next!=NULL){
         if(aux->flight_slot->type=='a' && aux->flight_slot->urg==0){
           aux->flight_slot->fuel-=1;
         }
+        //Caso chegue a 0 manda mensagem a TC para esta dar redirect ao voo
         if(aux->flight_slot->fuel<=4+aux->flight_slot->eta+configurations->T && aux->flight_slot->type=='a' && aux->flight_slot->urg==0){
           strcpy(msq.slot.code,aux->flight_slot->code);
           aux->flight_slot->urg=1;
           msq.slot_buffer=aux->flight_slot;
           msq.msgtype=URGENCY;
-          //printf("%s Urgencia needed\n", msq.slot.code);
+          #ifdef DEBUG
+          printf("%s Urgencia needed\n", msq.slot.code);
+          #endif
           msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
         }
         aux=aux->next;
       }
       pthread_mutex_unlock(&mutex_ll);
+      //dorme o tempo necessario para passar uma unidade de tempo
       usleep(configurations->ut*1000);
     }
   }
@@ -298,26 +324,33 @@ void* try_fuel(void* flight){
 void* cthreads_coming(void* flight){
   flights_struct my_flight=*((flights_struct*)flight);//para ficar como coming_flight
   p_slot slot_aux;
+  //inicializa a msq para mandar e espera para receber o slot com informações
   msq_flights msq = {FLIGHTS,'a',0,my_flight.ETA,my_flight.fuel};
   strcpy(msq.slot.code,my_flight.flight_code);
   msgsnd(msqid_flights,&msq,sizeof(msq)- sizeof(long),0);
   msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),SLOT,0);
-  //printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  #ifdef DEBUG
+  printf("RECEBI: S:%d P:%d T:%d F:%d E:%d\n",msq.slot_buffer->slot,msq.slot_buffer->priority,msq.slot_buffer->takeoff,msq.slot_buffer->fuel,msq.slot_buffer->eta);
+  #endif
   slot_aux=msq.slot_buffer;
+  //espera por acabar ou por receber um redirect da TC
   while(slot_aux->finish!=1){
     usleep(configurations->L*10000);
     if(slot_aux->redirected==1){
       sem_wait(sem_log);
       log_redirected(f_log,slot_aux->code,slot_aux->fuel);
       sem_post(sem_log);
+      pthread_exit(NULL);
     }
   }
   arrive(slot_aux,slot_aux->pista);
-  //printf("Entrando %s \n",slot_aux->code);
+  #ifdef DEBUG
+  printf("Entrando %s \n",slot_aux->code);
+  #endif
   pthread_exit(NULL);
 }
 
-void* thread_creates_threads(void* id){
+void* thread_creates_threads(void* id){//vai criar as threads
   int time_passed;
   time_t time_now;
   flights_struct c_flight;
@@ -326,13 +359,21 @@ void* thread_creates_threads(void* id){
     sem_wait(sem_esta_time);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     sem_post(sem_esta_time);
+    //testa se ainda ha alguma thread para criar
     if(flights->next!=NULL && time_passed>=flights->next->init){
+      //testa se e arrival ou departure
       if(flights->next->type=='A'){
+        //inicializa a struct
         c_flight.ETA=flights->next->ETA;
         c_flight.fuel=flights->next->fuel;
         strcpy(c_flight.flight_code,flights->next->flight_code);
+        //remove pois ja esta criado
         remove_first_flight(flights);
-        pthread_create(&threads_flight[counter_threads],NULL,cthreads_coming,&c_flight);
+        if(pthread_create(&threads_flight[counter_threads],NULL,cthreads_coming,&c_flight)!=0){
+          perror("error in cthreads_coming!");
+          exit(-1);
+        }
+        //atualiza estatisticas
         sem_wait(sem_esta_time);
         shared_var_stat_time->statistics.created_flights+=1;
         sem_post(sem_esta_time);
@@ -343,10 +384,16 @@ void* thread_creates_threads(void* id){
         counter_threads++;
       }
       else{
+        //inicializa a struct
         c_flight.takeoff=flights->next->takeoff;
         strcpy(c_flight.flight_code,flights->next->flight_code);
+        //remove pois ja esta criado
         remove_first_flight(flights);
-        pthread_create(&threads_flight[counter_threads],NULL,cthreads_leaving,&c_flight);
+        if(pthread_create(&threads_flight[counter_threads],NULL,cthreads_leaving,&c_flight)!=0){
+          perror("error in cthreads_leaving!");
+          exit(-1);
+        }
+        //atualiza estatisticas
         sem_wait(sem_esta_time);
         shared_var_stat_time->statistics.created_flights+=1;
         sem_post(sem_esta_time);
@@ -360,20 +407,21 @@ void* thread_creates_threads(void* id){
   }
 }
 
-void initialize_thread_create(){
+void initialize_thread_create(){//inicializa as threads que vão criar threads
   if(pthread_create(&threads_functions[0],NULL,thread_creates_threads,NULL)!=0){
     perror("error in pthread_create_threads!");
+    exit(-1);
   }
 }
 
-void initialize_flights(){
+void initialize_flights(){//cria lista e aloca espaço suficiente para o array de threads
   flights=create_list_flight();
   threads_flight=(pthread_t*)malloc(sizeof(pthread_t*)*(configurations->A+configurations->D));
 }
 
 //*********************************PIPE*****************************************
 
-void initialize_pipe(){
+void initialize_pipe(){//inicializa a pipe
   unlink("named_pipe");
   if ((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0666)<0) && (errno!= EEXIST)){//cria a pipe
     perror("Cannot create pipe: ");
@@ -388,7 +436,7 @@ void initialize_pipe(){
 
 //********************************SEMAPHORES************************************
 
-void initialize_semaphores(){
+void initialize_semaphores(){//inicializa semaphores
   sem_unlink("LOG");
   sem_log=sem_open("LOG",O_CREAT|O_EXCL,0766,1);
   sem_unlink("01L");
@@ -411,15 +459,16 @@ void initialize_semaphores(){
 
 //******************************SHARED MEMORY***********************************
 
-void initialize_shm(){
-  if((shmid_stat_time=shmget(IPC_PRIVATE,sizeof(Sta_time),IPC_CREAT | 0766))<0){     //devolve um bloco de memória partilhada de tamanho [size]
+void initialize_shm(){//inicializa as shared memories e inicia os seus valores
+  //shared memory das estatiticas
+  if((shmid_stat_time=shmget(IPC_PRIVATE,sizeof(Sta_time),IPC_CREAT | 0766))<0){
     perror("error in shmget with Sta_log_time");
-    exit(1);
+    exit(-1);
   }
 
-  if((shared_var_stat_time=(Sta_time*) shmat(shmid_stat_time,NULL,0))==(Sta_time*)-1){  //atribui um bloco de memória ao ponteiro shared_var
+  if((shared_var_stat_time=(Sta_time*) shmat(shmid_stat_time,NULL,0))==(Sta_time*)-1){
     perror("error in shmat with Sta_log_time");
-    exit(1);
+    exit(-1);
   }
 
   shared_var_stat_time->time_init=time(NULL);
@@ -435,21 +484,21 @@ void initialize_shm(){
   shared_var_stat_time->statistics.rejected_flights=0;
   shared_var_stat_time->statistics.redirected_flights=0;
 
-
-  if((shmid_slot=shmget(IPC_PRIVATE,sizeof(flight_slot)*(configurations->A+configurations->D),IPC_CREAT | 0766))<0){//devolve um bloco de memória partilhada de tamanho [size]
-    perror("error in shmget with Sta_log_time");
-    exit(1);
+  //shared memory para informações dos voos
+  if((shmid_slot=shmget(IPC_PRIVATE,sizeof(flight_slot)*(configurations->A+configurations->D),IPC_CREAT | 0766))<0){
+    perror("error in shmget with shm_slots");
+    exit(-1);
   }
 
-  if((shm_slots=(p_slot)shmat(shmid_slot,NULL,0))==(p_slot)-1){  //atribui um bloco de memória ao ponteiro shared_var
-    perror("error in shmat with Sta_log_time");
-    exit(1);
+  if((shm_slots=(p_slot)shmat(shmid_slot,NULL,0))==(p_slot)-1){
+    perror("error in shmat with shm_slots");
+    exit(-1);
   }
 }
 
 //**********************************TC******************************************
 
-void* receive_msq_urgency(void* id){
+void* receive_msq_urgency(void* id){//thread que vai receber voos de emergencia
   msq_flights msq;
   while(1){
     msgrcv(msqid_flights,&msq,sizeof(msq)-sizeof(long),URGENCY,0);
@@ -462,39 +511,52 @@ void* receive_msq_urgency(void* id){
   }
 }
 
-void holding(int slot){
+void holding(int slot){//trata dos holds dos voos
   int random;
   srand(time(NULL));
   p_list_slot aux=find_slot(list_slot_flight,slot);
+  //escolhe um hold random para o voo
   random=rand()%(configurations->hld_max - configurations->hld_min + 1) + configurations->hld_min;
+  #ifdef DEBUG
   printf("holding: %d\n",random);
+  #endif
   sem_wait(sem_log);
   log_holding(f_log,aux->flight_slot->code,random);
   sem_post(sem_log);
+  //atualiza o eta,holding e priority de cada voo
   aux->flight_slot->eta+=random;
   aux->flight_slot->holding=random;
   aux->flight_slot->priority+=random;
+  //testa se e urgencia para atualiza estatiticas
   if(aux->flight_slot->urg==1)
     aux->flight_slot->nholds_urg+=1;
   aux->flight_slot->nholds+=1;
-  //printf("urg:%d not:%d\n",aux->flight_slot->nholds_urg,aux->flight_slot->nholds);
+  #ifdef DEBUG
+  printf("urg:%d not:%d\n",aux->flight_slot->nholds_urg,aux->flight_slot->nholds);
+  #endif
+  //da reorder a lista pois o add a priority pode ter alterado a sua posição
   reorder(list_slot_flight);
 }
 
-void* update_fuel(void* id){
+void* update_fuel(void* id){//thread que vai ver dos redirected flights
   p_list_slot aux;
   while(1){
     pthread_mutex_lock(&mutex_ll);
     aux=list_slot_flight;
     while(aux->next!=NULL){
+      //se o voo for arrival decrementa o fuel
       if(aux->flight_slot->fuel!=0 && aux->flight_slot->type=='a'){
         aux->flight_slot->fuel--;
       }
+      //se chegar a 0 entao da redirected e trata das estatiticas
       if(aux->flight_slot->fuel==0 && aux->flight_slot->type=='a'){
         aux->flight_slot->redirected=1;
         sem_wait(sem_esta_time);
         shared_var_stat_time->statistics.redirected_flights+=1;
         sem_post(sem_esta_time);
+        sem_wait(sem_ll);
+        remove_nth_slot(list_slot_flight,aux->flight_slot->slot);
+        sem_post(sem_ll);
       }
       aux=aux->next;
     }
@@ -503,7 +565,7 @@ void* update_fuel(void* id){
   }
 }
 
-void* departures_arrivals(void* id){
+void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos voos
   int time_passed,valueD,valueA,valueL,valueR;
   time_t time_now;
   p_list_slot aux;
@@ -512,23 +574,36 @@ void* departures_arrivals(void* id){
       aux=list_slot_flight->next;
       time_now=time(NULL);
       time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
+      //testa se o tempo passado e maior que a priority do voo no topo da lista
       if(time_passed>=aux->flight_slot->priority){
+        //testa se o proximo é ou não do mesmo tipo para aterrar ambos
         if(aux->next!=NULL){
+          //caso aconteça e o tempo passado for maior q a priority desse entao aterra os 2 se não so aterra o primeiro
           if(time_passed>=aux->next->flight_slot->priority && aux->flight_slot->type==aux->next->flight_slot->type){
+            //testa para ver q pistas esta ocupada, se a de arrival se a de departure
             sem_getvalue(sem_pistas_landing,&valueA);
             sem_getvalue(sem_pistas_departure,&valueD);
             if(valueA==2 && valueD==2){
-              if(aux->flight_slot->type=='a'){
+              //se tiverem as 2 livres quer dizer que ambas as suas pistas tao livres logo signfica que podem aterrar 2 voos
+              if(aux->flight_slot->type=='a'){//sao de arrival
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
+                //poe na shared memory a pista que depois vai ser usada pela thread
                 strcpy(aux->flight_slot->pista,"28L");
                 aux->flight_slot->finish=1;
+                //remove da ll pois ja aterrou
                 remove_first_slot(list_slot_flight);
                 strcpy(aux->next->flight_slot->pista,"28R");
                 aux->next->flight_slot->finish=1;
                 remove_first_slot(list_slot_flight);
                 pthread_mutex_unlock(&mutex_ll);
               }
-              else{
+              else{//sao de departure
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
                 strcpy(aux->flight_slot->pista,"01L");
                 aux->flight_slot->finish=1;
@@ -539,11 +614,49 @@ void* departures_arrivals(void* id){
                 pthread_mutex_unlock(&mutex_ll);
               }
             }
-            else{
+            else if(valueA==2 && valueD<2){//se os arrival esta desocupada mas os departure esta ocupada
+              if(aux->flight_slot->type=='a'){//se for arrival entao da holding de ambos
+                pthread_mutex_lock(&mutex_ll);
+                holding(aux->flight_slot->slot);
+                holding(aux->next->flight_slot->slot);
+                pthread_mutex_unlock(&mutex_ll);
+              }
+              else{//se nao vai ver em q pista pode aterrar
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
+                sem_getvalue(sem_01L,&valueL);
+                sem_getvalue(sem_01R,&valueR);
+                if(valueR==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
+                  pthread_mutex_lock(&mutex_ll);
+                  strcpy(aux->flight_slot->pista,"01R");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                  pthread_mutex_unlock(&mutex_ll);
+                }
+                else if(valueL==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
+                  pthread_mutex_lock(&mutex_ll);
+                  strcpy(aux->flight_slot->pista,"01L");
+                  aux->flight_slot->finish=1;
+                  remove_first_slot(list_slot_flight);
+                  pthread_mutex_unlock(&mutex_ll);
+                }
+              }
+            }
+            else if(valueD==2 && valueA<2){//departure desocupada mas pelo menos uma das arrival ocupada
               if(aux->flight_slot->type=='a'){
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
                 if(valueL==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"28L");
                   aux->flight_slot->finish=1;
@@ -552,6 +665,9 @@ void* departures_arrivals(void* id){
                   pthread_mutex_unlock(&mutex_ll);
                 }
                 else if(valueR==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"28R");
                   aux->flight_slot->finish=1;
@@ -568,14 +684,17 @@ void* departures_arrivals(void* id){
               }
             }
           }
-          else{
-            if(aux->flight_slot->type=='a'){
+          else{//quer dizer q o tempo passado nao passou o do seguinte logo so avança com o primeiro
+            if(aux->flight_slot->type=='a'){//ve se e arrival
               sem_getvalue(sem_pistas_landing,&valueA);
               sem_getvalue(sem_pistas_departure,&valueD);
-              if(valueA>=1 && valueD==2){
+              if(valueA>=1 && valueD==2){//ve se as pistas dao para aterrar
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
-                if(valueR==1){
+                if(valueR==1){//ve em q pista aterra
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"28R");
                   aux->flight_slot->finish=1;
@@ -583,6 +702,9 @@ void* departures_arrivals(void* id){
                   pthread_mutex_unlock(&mutex_ll);
                 }
                 else if(valueL==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"28L");
                   aux->flight_slot->finish=1;
@@ -593,13 +715,16 @@ void* departures_arrivals(void* id){
               else
                 holding(aux->flight_slot->slot);
             }
-            else{
+            else{//é departure
               sem_getvalue(sem_pistas_landing,&valueA);
               sem_getvalue(sem_pistas_departure,&valueD);
-              if(valueD>=1 && valueA==2){
+              if(valueD>=1 && valueA==2){//ve se pode descolar
                 sem_getvalue(sem_01L,&valueL);
                 sem_getvalue(sem_01R,&valueR);
-                if(valueR==1){
+                if(valueR==1){//ve em q pista descola
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"01R");
                   aux->flight_slot->finish=1;
@@ -607,6 +732,9 @@ void* departures_arrivals(void* id){
                   pthread_mutex_unlock(&mutex_ll);
                 }
                 else if(valueL==1){
+                  #ifdef DEBUG
+                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                  #endif
                   pthread_mutex_lock(&mutex_ll);
                   strcpy(aux->flight_slot->pista,"01L");
                   aux->flight_slot->finish=1;
@@ -617,14 +745,17 @@ void* departures_arrivals(void* id){
             }
           }
         }
-        else{
-          if(aux->flight_slot->type=='a'){
+        else{//caso seja o unico voo na lista
+          if(aux->flight_slot->type=='a'){//ve se arrival
             sem_getvalue(sem_pistas_landing,&valueA);
             sem_getvalue(sem_pistas_departure,&valueD);
-            if(valueA>=1 && valueD==2){
+            if(valueA>=1 && valueD==2){//testa se as pistas estao desocupadas
               sem_getvalue(sem_28L,&valueL);
               sem_getvalue(sem_28R,&valueR);
               if(valueR==1){
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
                 strcpy(aux->flight_slot->pista,"28R");
                 aux->flight_slot->finish=1;
@@ -632,6 +763,9 @@ void* departures_arrivals(void* id){
                 pthread_mutex_unlock(&mutex_ll);
               }
               else if(valueL==1){
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
                 strcpy(aux->flight_slot->pista,"28L");
                 aux->flight_slot->finish=1;
@@ -649,6 +783,9 @@ void* departures_arrivals(void* id){
               sem_getvalue(sem_01L,&valueL);
               sem_getvalue(sem_01R,&valueR);
               if(valueR==1){
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
                 strcpy(aux->flight_slot->pista,"01R");
                 aux->flight_slot->finish=1;
@@ -656,6 +793,9 @@ void* departures_arrivals(void* id){
                 pthread_mutex_unlock(&mutex_ll);
               }
               else if(valueL==1){
+                #ifdef DEBUG
+                printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                #endif
                 pthread_mutex_lock(&mutex_ll);
                 strcpy(aux->flight_slot->pista,"01L");
                 aux->flight_slot->finish=1;
@@ -670,30 +810,50 @@ void* departures_arrivals(void* id){
   }
 }
 
-void ControlTower(){
+void ControlTower(){//torre de controlo
   char* stime = current_time();
   int slot=0;
   msq_flights msq;
   flight_slot buffer;
   list_slot_flight=create_list_slot_flight();
+  sem_wait(sem_log);
   printf("%s Control Tower created -> pid: %d\n",stime,getpid());
   fprintf(f_log,"%s Control Tower created -> pid: %d\n",stime,getpid());
   fflush(f_log);
-  pthread_create(&threads_functions[1],NULL,try_fuel,NULL);
-  pthread_create(&threads_functions[2],NULL,receive_msq_urgency,NULL);
-  pthread_create(&threads_functions[3],NULL,update_fuel,NULL);
-  pthread_create(&threads_functions[4],NULL,departures_arrivals,NULL);
-  while(1){
+  sem_post(sem_log);
+  //inicia as threads
+  if(pthread_create(&threads_functions[1],NULL,try_fuel,NULL)!=0){
+    perror("error in try_fuel");
+    exit(-1);
+  }
+  if(pthread_create(&threads_functions[2],NULL,receive_msq_urgency,NULL)!=0){
+    perror("error in receive_msq_urgency");
+    exit(-1);
+  }
+  if(pthread_create(&threads_functions[3],NULL,update_fuel,NULL)!=0){
+    perror("error in update_fuel");
+    exit(-1);
+  }
+  if(pthread_create(&threads_functions[4],NULL,departures_arrivals,NULL)!=0){
+    perror("error in receive_msq_urgency");
+    exit(-1);
+  }
+  while(1){//fica a espera de receber mensagem do voo para adicionar as suas informações a queue e saber onde o colocar na lista
     msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
     msq.msgtype=SLOT;
+    //adiciona ao buffer as informações que recebeu
     buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,msq.ETA,0,0,0,msq.slot.code,msq.type,0,0,0);
+    //adiciona a shared memory a struct na posiçao slot, para que cada voo saiba onde esperar a informaçao
     shm_slots[slot]=buffer;
     pthread_mutex_lock(&mutex_ll);
     add_slot_flight(list_slot_flight,&shm_slots[slot]);
     pthread_mutex_unlock(&mutex_ll);
-    //print_list_teste(list_slot_flight);
+    #ifdef DEBUG
+    print_list_teste(list_slot_flight);
+    #endif
     msq.slot_buffer=&shm_slots[slot];
     slot++;
+    //envia o ponteiro da so slot na shared memory para a thread para esta saber onde ter de ver a informaçao
     msgsnd(msqid_flights,&msq,sizeof(msq)-sizeof(long),0);
   }
 }
@@ -706,6 +866,7 @@ int main(){
   char *token;
   f_log=fopen("log.txt","w");
   configurations=inicia("config.txt");
+  //inicializa tudo
   initialize_shm();
   initialize_semaphores();
   initialize_MSQ();
@@ -714,19 +875,19 @@ int main(){
   initialize_thread_create();
   pid_manager=getpid();
   initialize_signals();
-  signal(SIGINT,terminate);
+  //cria a TC
   if(fork()==0){
     pid_tower=getpid();
     signal(SIGUSR1,sigusr1);
     ControlTower();
     exit(0);
   }
-  while(1){
+  while(1){//esta sempre a espera de comandos novos
     nbits = read(fd_pipe,message,sizeof(message));
     counter=0;
-    if(nbits > 0){
+    if(nbits > 0){//vê se recebeu uma mensagem ou nao
       message[nbits]='\0';
-      while(message[counter]!='\0'){
+      while(message[counter]!='\0'){//vai separar a mensagem em commandos
         memset(code,0,70);
         memset(keep_code,0,80);
         memset(f_code,0,80);
@@ -738,13 +899,13 @@ int main(){
         strcpy(keep_code,code);
         sem_wait(sem_log);
         sem_wait(sem_esta_time);
-        test_command=verify_command(code,shared_var_stat_time,configurations);
+        test_command=verify_command(code,shared_var_stat_time,configurations);//testa o commando
         sem_post(sem_log);
         sem_post(sem_esta_time);
         if(test_command==1){
           strcpy(buffer,keep_code);
           token=strtok(keep_code," ");
-          if(strcmp(token,"DEPARTURE")==0 && counter_departures<configurations->D){
+          if(strcmp(token,"DEPARTURE")==0 && counter_departures<configurations->D){//testa se e departure e se nao passou ja do limite dado nas configs
             right_command(f_log,buffer);
             i=0;
             while(token!=NULL){
@@ -760,10 +921,10 @@ int main(){
               }
               i++;
             }
-            add_flight(flights,f_code,init,takeoff,0,0,'D');
+            add_flight(flights,f_code,init,takeoff,0,0,'D');//adiciona a lista para criar as threads
             counter_departures++;
           }
-          else if(strcmp(token,"DEPARTURE")==0 && counter_departures>=configurations->D){
+          else if(strcmp(token,"DEPARTURE")==0 && counter_departures>=configurations->D){//caso seja departure e ja passe do limite rejeita
             sem_wait(sem_esta_time);
             shared_var_stat_time->statistics.rejected_flights+=1;
             sem_post(sem_esta_time);
@@ -771,7 +932,7 @@ int main(){
             log_rejected(f_log,buffer);
             sem_post(sem_log);
           }
-          else if(strcmp(token,"ARRIVAL")==0 && counter_arrivals<configurations->A){
+          else if(strcmp(token,"ARRIVAL")==0 && counter_arrivals<configurations->A){//testa se e arrival e se nao passou ja do limite dado nas configs
             right_command(f_log,buffer);
             i=0;
             while(token!=NULL){
@@ -790,10 +951,10 @@ int main(){
               }
               i++;
             }
-            add_flight(flights,f_code,init,0,ETA,fuel,'A');
+            add_flight(flights,f_code,init,0,ETA,fuel,'A');//adiciona a lista para criar
             counter_arrivals++;
           }
-          else if(strcmp(token,"ARRIVAL")==0 && counter_departures>=configurations->D){
+          else if(strcmp(token,"ARRIVAL")==0 && counter_departures>=configurations->D){//caso seja arrival e ja passe do limite rejeita
             sem_wait(sem_esta_time);
             shared_var_stat_time->statistics.rejected_flights+=1;
             sem_post(sem_esta_time);
@@ -802,7 +963,7 @@ int main(){
             sem_post(sem_log);
           }
         }
-        else{
+        else{//comando errado
           sem_wait(sem_log);
           wrong_command(f_log,keep_code);
           sem_post(sem_log);

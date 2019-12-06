@@ -1,3 +1,4 @@
+//struct para os voos que vao ser criados
 typedef struct f_node* p_flight;
 typedef struct f_node{
   char flight_code[6],type;
@@ -5,6 +6,7 @@ typedef struct f_node{
   p_flight next;
 }flights_struct;
 
+//sturct que vai estar na linked list em shared memory com as informações dos voos
 typedef struct s_node* p_slot;
 typedef struct s_node{
   char code[6];
@@ -14,6 +16,7 @@ typedef struct s_node{
   int fuel,eta,initial_eta,holding,redirected,nholds,nholds_urg,urg;//para coming flights
 }flight_slot;
 
+//LL que vai estar em shared memory
 typedef struct ls_node* p_list_slot;
 typedef struct ls_node{
   p_slot flight_slot;
@@ -40,6 +43,7 @@ p_list_slot create_list_slot_flight(void);
 void add_slot_flight(p_list_slot head,p_slot slot);
 p_list_slot search_place_to_insert_slot(p_list_slot head,int priority);
 void remove_first_slot(p_list_slot head);
+void remove_nth_slot(p_list_slot head,int slot);
 void remove_add_urgency(p_list_slot head,int slot);
 p_list_slot find_slot(p_list_slot head,int slot);
 void reorder(p_list_slot head);

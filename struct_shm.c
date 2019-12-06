@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#define DEBUG 1//remove this line to remove debug messages
-
 
 //function das statistic********************************************************
 void update_statistic(p_sta statistic){
@@ -187,6 +185,7 @@ void log_arrive_created(FILE *f,char* code){
   fprintf(f,"%s ARRIVAL => %s created\n",stime,code);
   fflush(f);
 }
+
 void log_departure_created(FILE *f,char* code){
   char* stime = current_time();
   printf("%s DEPARTURE %s created\n",stime,code);

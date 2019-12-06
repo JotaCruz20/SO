@@ -1,14 +1,16 @@
-  #include <time.h>
+#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "Flights.h"
 
+//struct com as configurações lidas do ficheiro
 typedef struct Config{
   int ut,D,A,hld_min,hld_max;
   double T,dt,L,dl;
 }config;
 typedef config* p_config;
 
+//struct com as estatiticas
 typedef struct statistic{
     int created_flights,landed_flights,take_of_flights;
 
@@ -24,11 +26,13 @@ typedef struct statistic{
 }Statistic;
 typedef Statistic* p_sta;
 
+//struct com a struct de estatistcias e o tempo inicial que vai estar em shared memory
 typedef struct{
     Statistic statistics;
     time_t time_init;
 }Sta_time;
 //message queue structs*********************************************************
+//struct da message queue
 typedef struct{
   //receiving
   long msgtype;

@@ -117,6 +117,16 @@ void remove_first_slot(p_list_slot head){
   free(aux);
 }
 
+void remove_nth_slot(p_list_slot head,int slot){
+  p_list_slot aux=head,ant;
+  while(aux->flight_slot->slot!=slot){
+    ant=aux;
+    aux=aux->next;
+  }
+  ant->next=aux->next;
+  free(aux);
+}
+
 p_list_slot find_slot(p_list_slot head,int slot){
   p_list_slot current=head;
   while (current != NULL) {

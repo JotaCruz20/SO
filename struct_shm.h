@@ -55,7 +55,7 @@ void right_command(FILE *f, char* command);
 void wrong_command(FILE *f, char* command);
 char* current_time();
 int verify_command(char* command,Sta_time* shared_var_stat_time,p_config configuration);
-int verify_fuel(int fuel,int eta,int init);
+int verify_fuel(int fuel,int eta,p_config configuration);
 int verify_init(int init,Sta_time* shared_var_stat_time,p_config configuration);
 int verify_takeoff(int init,Sta_time* shared_var_stat_time,p_config configuration);
 void log_emergency_landing(FILE *f,char* flight);

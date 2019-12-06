@@ -556,7 +556,7 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
       while(aux->next!=NULL){
         aux=aux->next;
         counter+=1;
-        if(counter>=5 && time_passed>aux->flight_slot->priority/2){
+        if(counter>=5 && time_passed>aux->flight_slot->priority/2 && aux->flight_slot->type=='a'){//caso estejam 5 voos a frente e ele ja esteja a meio do caminho da hold
           holding(aux->flight_slot->slot);
           #ifdef DEBUG
           printf("dei hold aqui\n");
@@ -645,7 +645,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
                 pthread_mutex_unlock(&mutex_ll);
               }
             }
-            else if(valueA==2 && valueD<2){//se os arrival esta desocupada mas os departure esta ocupada
+            else if(valueD<2){//se os departure esta ocupada
               if(aux->flight_slot->type=='a'){//se for arrival entao da holding de ambos
                 pthread_mutex_lock(&mutex_ll);
                 holding(aux->flight_slot->slot);
@@ -680,7 +680,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
                 }
               }
             }
-            else if(valueD==2 && valueA<2){//departure desocupada mas pelo menos uma das arrival ocupada
+            else if(valueA<2){//pelo menos uma das arrival ocupada
               if(aux->flight_slot->type=='a'){
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
@@ -719,7 +719,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
             if(aux->flight_slot->type=='a'){//ve se e arrival
               sem_getvalue(sem_pistas_landing,&valueA);
               sem_getvalue(sem_pistas_departure,&valueD);
-              if(valueA>=1 && valueD==2){//ve se as pistas dao para aterrar
+              if(valueA>=1 && valueD==2){//departure desocupado e arrival no minimo uma pista livre
                 sem_getvalue(sem_28L,&valueL);
                 sem_getvalue(sem_28R,&valueR);
                 if(valueR==1){//ve em q pista aterra

@@ -37,8 +37,8 @@ char* current_time(){
   return stime;
 }
 
-int verify_fuel(int fuel,int eta,int init){
-  if((eta-init)>fuel){
+int verify_fuel(int fuel,int eta,p_config configuration){
+  if((eta+configuration->L)>fuel){
     return 0;
   }
   else{
@@ -88,7 +88,7 @@ int verify_command(char* command,Sta_time* shared_var_sta_time,p_config configur
       token4=strtok(NULL," ");
       token5=strtok(NULL," ");
       if(strcmp(token,"init:")==0 && strcmp(token2,"eta:")==0 && strcmp(token4,"fuel:")==0){
-        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_time,configuration) && verify_fuel(atoi(token5),atoi(token3),atoi(token1))){
+        if((atoi(token1)!=0 || token1[0]=='0') && (atoi(token3)!=0 || token3[0]=='0') && (atoi(token5)!=0 || token5[0]=='0') && atoi(token1)<atoi(token3) && verify_init(atoi(token1),shared_var_sta_time,configuration) && verify_fuel(atoi(token5),atoi(token3),configuration)){
           return 1;
         }
         else

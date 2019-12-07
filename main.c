@@ -34,8 +34,8 @@ sem_t *sem_log,*sem_01L,*sem_01R,*sem_28L,*sem_28R,*sem_pistas_landing,*sem_pist
 pthread_mutex_t mutex_ll= PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_cond_create= PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond_create = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t mutex_cond_hold_five= PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond_hold_five = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex_cond_flights= PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_flights = PTHREAD_COND_INITIALIZER;
 pthread_t threads_functions[5];//id da thread que cria threads
 pthread_t *threads_flight;//array dos ids threads
 FILE* f_log;
@@ -119,9 +119,9 @@ void terminate(){//função para o Ctrl+C
     sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
     pthread_mutex_destroy(&mutex_cond_create);
-    pthread_mutex_destroy(&mutex_cond_hold_five);
+    pthread_mutex_destroy(&mutex_cond_flights);
     pthread_cond_destroy(&cond_create);
-    pthread_cond_destroy(&cond_create);
+    pthread_cond_destroy(&cond_flights);
     //CLOSE MESSAGE QUEUE******************
     if(msqid_flights>=0){//remove message queue
       shmctl(msqid_flights,IPC_RMID,NULL);
@@ -535,9 +535,9 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
   while(1){
     aux=list_slot_flight;
     counter=0;
-    pthread_mutex_lock(&mutex_cond_hold_five);
+    pthread_mutex_lock(&mutex_cond_flights);
     while(list_slot_flight->next==NULL){
-      pthread_cond_wait(&cond_hold_five,&mutex_cond_hold_five);
+      pthread_cond_wait(&cond_flights,&mutex_cond_flights);
     }
     pthread_mutex_lock(&mutex_ll);
     time_now=time(NULL);
@@ -553,7 +553,7 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
       }
     }
     pthread_mutex_unlock(&mutex_ll);
-    pthread_mutex_unlock(&mutex_cond_hold_five);
+    pthread_mutex_unlock(&mutex_cond_flights);
     sem_post(sem_ll);
   }
   pthread_exit(NULL);
@@ -562,6 +562,10 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
 void* update_fuel(void* id){//thread que vai ver dos redirected flights
   p_list_slot aux;
   while(1){
+    pthread_mutex_lock(&mutex_cond_flights);
+    while(list_slot_flight->next==NULL){
+      pthread_cond_wait(&cond_flights,&mutex_cond_flights);
+    }
     pthread_mutex_lock(&mutex_ll);
     aux=list_slot_flight;
     while(aux->next!=NULL){
@@ -582,6 +586,7 @@ void* update_fuel(void* id){//thread que vai ver dos redirected flights
       aux=aux->next;
     }
     pthread_mutex_unlock(&mutex_ll);
+    pthread_mutex_unlock(&mutex_cond_flights);
     usleep(configurations->ut*1000);
   }
 }
@@ -1036,15 +1041,15 @@ void ControlTower(){//torre de controlo
     msgrcv(msqid_flights,&msq,sizeof(msq) - sizeof(long),FLIGHTS,0);
     msq.msgtype=SLOT;
     //adiciona ao buffer as informações que recebeu
-    pthread_mutex_lock(&mutex_cond_hold_five);
+    pthread_mutex_lock(&mutex_cond_flights);
     buffer=add_slot(slot,msq.takeoff,msq.fuel,msq.ETA,msq.ETA,0,0,0,msq.slot.code,msq.type,0,0,0);
     //adiciona a shared memory a struct na posiçao slot, para que cada voo saiba onde esperar a informaçao
     shm_slots[slot]=buffer;
     pthread_mutex_lock(&mutex_ll);
     add_slot_flight(list_slot_flight,&shm_slots[slot]);
-    pthread_cond_signal(&cond_hold_five);
+    pthread_cond_broadcast(&cond_flights);
     pthread_mutex_unlock(&mutex_ll);
-    pthread_mutex_unlock(&mutex_cond_hold_five);
+    pthread_mutex_unlock(&mutex_cond_flights);
     #ifdef DEBUG
     print_list_teste(list_slot_flight);
     #endif

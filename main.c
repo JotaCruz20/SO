@@ -19,7 +19,6 @@
 #include <pthread.h>
 #include "struct_shm.h"
 #define PIPE_NAME  "named_pipe"
-
 #define SLOT 2
 #define FLIGHTS 1
 #define URGENCY 3
@@ -88,7 +87,7 @@ void terminate(){//função para o Ctrl+C
     #ifdef DEBUG
     printf("->Closing thread functions.\n");
     #endif
-    for(i=1;i<6;i++){
+    for(i=1;i<5;i++){
       pthread_cancel(threads_functions[i]);
   	}
     //CLOSE SHARED MEMORIES******************
@@ -119,6 +118,10 @@ void terminate(){//função para o Ctrl+C
     sem_unlink("PISTAS");
     sem_unlink("ESTA_TIME");
     pthread_mutex_destroy(&mutex_ll);
+    pthread_mutex_destroy(&mutex_cond_create);
+    pthread_mutex_destroy(&mutex_cond_hold_five);
+    pthread_cond_destroy(&cond_create);
+    pthread_cond_destroy(&cond_create);
     //CLOSE MESSAGE QUEUE******************
     if(msqid_flights>=0){//remove message queue
       shmctl(msqid_flights,IPC_RMID,NULL);
@@ -532,11 +535,11 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
   while(1){
     aux=list_slot_flight;
     counter=0;
-    sem_wait(sem_ll);
     pthread_mutex_lock(&mutex_cond_hold_five);
     while(list_slot_flight->next==NULL){
       pthread_cond_wait(&cond_hold_five,&mutex_cond_hold_five);
     }
+    pthread_mutex_lock(&mutex_ll);
     time_now=time(NULL);
     time_passed=((time_now-shared_var_stat_time->time_init)*1000)/configurations->ut;
     while(aux->next!=NULL){
@@ -549,6 +552,7 @@ void* hold_five(void* id){//vai dar hold aos voos que estão proximos se houver 
         #endif
       }
     }
+    pthread_mutex_unlock(&mutex_ll);
     pthread_mutex_unlock(&mutex_cond_hold_five);
     sem_post(sem_ll);
   }
@@ -749,7 +753,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
                     holding(aux_find->flight_slot->slot);
                     pthread_mutex_unlock(&mutex_ll);
                   }
-                  else{//se nao vai ver em q pista pode deslocar
+                  else{//se nao vai ver em q pista pode descolar
                     #ifdef DEBUG
                     printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
                     #endif

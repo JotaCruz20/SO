@@ -150,7 +150,10 @@ void remove_add_urgency(p_list_slot head,int slot){
   ant->next=current->next;
   aux=current;
   current=head;
-  if(current->next->flight_slot->urg==1){
+  if(current->next==NULL){
+    head->next=aux;
+  }
+  else if(current->next->flight_slot->urg==1){
       while(current->next!=NULL && current->next->flight_slot->urg==1 && current->next->flight_slot->priority<aux->flight_slot->priority){
           ant=current;
           current=current->next;

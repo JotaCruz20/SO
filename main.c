@@ -585,7 +585,7 @@ void* update_fuel(void* id){//thread que vai ver dos redirected flights
 void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos voos
   int time_passed,valueD,valueA,valueL,valueR;
   time_t time_now;
-  p_list_slot aux;
+  p_list_slot aux,aux_find;
   while(1){
     if(list_slot_flight->next!=NULL){
       aux=list_slot_flight->next;
@@ -678,7 +678,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
                   strcpy(aux->flight_slot->pista,"28L");
                   aux->flight_slot->finish=1;
                   remove_first_slot(list_slot_flight);
-                  holding(aux->flight_slot->slot);
+                  holding(aux->next->flight_slot->slot);
                   pthread_mutex_unlock(&mutex_ll);
                 }
                 else if(valueR==1){
@@ -689,7 +689,7 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
                   strcpy(aux->flight_slot->pista,"28R");
                   aux->flight_slot->finish=1;
                   remove_first_slot(list_slot_flight);
-                  holding(aux->flight_slot->slot);
+                  holding(aux->next->flight_slot->slot);
                   pthread_mutex_unlock(&mutex_ll);
                 }
                 else{
@@ -701,66 +701,239 @@ void* departures_arrivals(void* id){//thread que vai fazer o escalonamento dos v
               }
             }
           }
-          else{//quer dizer q o tempo passado nao passou o do seguinte logo so avança com o primeiro
-            if(aux->flight_slot->type=='a'){//ve se e arrival
-              sem_getvalue(sem_pistas_landing,&valueA);
-              sem_getvalue(sem_pistas_departure,&valueD);
-              if(valueA>=1 && valueD==2){//departure desocupado e arrival no minimo uma pista livre
-                sem_getvalue(sem_28L,&valueL);
-                sem_getvalue(sem_28R,&valueR);
-                if(valueR==1){//ve em q pista aterra
-                  #ifdef DEBUG
-                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
-                  #endif
-                  pthread_mutex_lock(&mutex_ll);
-                  strcpy(aux->flight_slot->pista,"28R");
-                  aux->flight_slot->finish=1;
-                  remove_first_slot(list_slot_flight);
-                  pthread_mutex_unlock(&mutex_ll);
+          else{//vai servir para testar se ha algum voo no topo da lista do mesmo tipo q vai sair para ir com ele
+            aux_find=aux->next;
+            while(aux_find->flight_slot->type!=aux->flight_slot->type && aux_find->next!=NULL){
+              aux_find=aux_find->next;
+            }
+            if(aux_find!=NULL){
+              if(time_passed>aux_find->flight_slot->priority){
+                //testa para ver q pistas esta ocupada, se a de arrival se a de departure
+                sem_getvalue(sem_pistas_landing,&valueA);
+                sem_getvalue(sem_pistas_departure,&valueD);
+                if(valueA==2 && valueD==2){
+                  //se tiverem as 2 livres quer dizer que ambas as suas pistas tao livres logo signfica que podem aterrar 2 voos
+                  if(aux->flight_slot->type=='a'){//sao de arrival
+                    #ifdef DEBUG
+                    printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                    #endif
+                    pthread_mutex_lock(&mutex_ll);
+                    //poe na shared memory a pista que depois vai ser usada pela thread
+                    strcpy(aux->flight_slot->pista,"28L");
+                    aux->flight_slot->finish=1;
+                    //remove da ll pois ja aterrou
+                    remove_first_slot(list_slot_flight);
+                    strcpy(aux_find->flight_slot->pista,"28R");
+                    aux_find->flight_slot->finish=1;
+                    remove_nth_slot(list_slot_flight,aux_find->flight_slot->slot);
+                    pthread_mutex_unlock(&mutex_ll);
+                  }
+                  else{//sao de departure
+                    #ifdef DEBUG
+                    printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                    #endif
+                    pthread_mutex_lock(&mutex_ll);
+                    strcpy(aux->flight_slot->pista,"01L");
+                    aux->flight_slot->finish=1;
+                    remove_first_slot(list_slot_flight);
+                    strcpy(aux_find->flight_slot->pista,"01R");
+                    aux_find->flight_slot->finish=1;
+                    remove_nth_slot(list_slot_flight,aux_find->flight_slot->slot);
+                    pthread_mutex_unlock(&mutex_ll);
+                  }
                 }
-                else if(valueL==1){
-                  #ifdef DEBUG
-                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
-                  #endif
-                  pthread_mutex_lock(&mutex_ll);
-                  strcpy(aux->flight_slot->pista,"28L");
-                  aux->flight_slot->finish=1;
-                  remove_first_slot(list_slot_flight);
-                  pthread_mutex_unlock(&mutex_ll);
+                else if(valueD<2){//se os departure esta ocupada
+                  if(aux->flight_slot->type=='a'){//se for arrival entao da holding de ambos
+                    pthread_mutex_lock(&mutex_ll);
+                    holding(aux->flight_slot->slot);
+                    holding(aux_find->flight_slot->slot);
+                    pthread_mutex_unlock(&mutex_ll);
+                  }
+                  else{//se nao vai ver em q pista pode deslocar
+                    #ifdef DEBUG
+                    printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                    #endif
+                    sem_getvalue(sem_01L,&valueL);
+                    sem_getvalue(sem_01R,&valueR);
+                    if(valueR==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"01R");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                    else if(valueL==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"01L");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                  }
+                }
+                else if(valueA<2){//pelo menos uma das arrival ocupada
+                  if(aux->flight_slot->type=='a'){
+                    sem_getvalue(sem_28L,&valueL);
+                    sem_getvalue(sem_28R,&valueR);
+                    if(valueL==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"28L");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      holding(aux_find->flight_slot->slot);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                    else if(valueR==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"28R");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      holding(aux_find->flight_slot->slot);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                    else{
+                      pthread_mutex_lock(&mutex_ll);
+                      holding(aux->flight_slot->slot);
+                      holding(aux_find->flight_slot->slot);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                  }
                 }
               }
-              else
-                holding(aux->flight_slot->slot);
-            }
-            else{//é departure
-              sem_getvalue(sem_pistas_landing,&valueA);
-              sem_getvalue(sem_pistas_departure,&valueD);
-              if(valueD>=1 && valueA==2){//ve se pode descolar
-                sem_getvalue(sem_01L,&valueL);
-                sem_getvalue(sem_01R,&valueR);
-                if(valueR==1){//ve em q pista descola
-                  #ifdef DEBUG
-                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
-                  #endif
-                  pthread_mutex_lock(&mutex_ll);
-                  strcpy(aux->flight_slot->pista,"01R");
-                  aux->flight_slot->finish=1;
-                  remove_first_slot(list_slot_flight);
-                  pthread_mutex_unlock(&mutex_ll);
+              else{//quer dizer q não encontrou nenhum do mesmo tipo que tenha um priority a sair
+                  if(aux->flight_slot->type=='a'){//ve se e arrival
+                    sem_getvalue(sem_pistas_landing,&valueA);
+                    sem_getvalue(sem_pistas_departure,&valueD);
+                    if(valueA>=1 && valueD==2){//departure desocupado e arrival no minimo uma pista livre
+                      sem_getvalue(sem_28L,&valueL);
+                      sem_getvalue(sem_28R,&valueR);
+                      if(valueR==1){//ve em q pista aterra
+                        #ifdef DEBUG
+                        printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                        #endif
+                        pthread_mutex_lock(&mutex_ll);
+                        strcpy(aux->flight_slot->pista,"28R");
+                        aux->flight_slot->finish=1;
+                        remove_first_slot(list_slot_flight);
+                        pthread_mutex_unlock(&mutex_ll);
+                      }
+                      else if(valueL==1){
+                        #ifdef DEBUG
+                        printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                        #endif
+                        pthread_mutex_lock(&mutex_ll);
+                        strcpy(aux->flight_slot->pista,"28L");
+                        aux->flight_slot->finish=1;
+                        remove_first_slot(list_slot_flight);
+                        pthread_mutex_unlock(&mutex_ll);
+                      }
+                    }
+                    else
+                      holding(aux->flight_slot->slot);
+                  }
+                  else{//é departure
+                    sem_getvalue(sem_pistas_landing,&valueA);
+                    sem_getvalue(sem_pistas_departure,&valueD);
+                    if(valueD>=1 && valueA==2){//ve se pode descolar
+                      sem_getvalue(sem_01L,&valueL);
+                      sem_getvalue(sem_01R,&valueR);
+                      if(valueR==1){//ve em q pista descola
+                        #ifdef DEBUG
+                        printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                        #endif
+                        pthread_mutex_lock(&mutex_ll);
+                        strcpy(aux->flight_slot->pista,"01R");
+                        aux->flight_slot->finish=1;
+                        remove_first_slot(list_slot_flight);
+                        pthread_mutex_unlock(&mutex_ll);
+                      }
+                      else if(valueL==1){
+                        #ifdef DEBUG
+                        printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                        #endif
+                        pthread_mutex_lock(&mutex_ll);
+                        strcpy(aux->flight_slot->pista,"01L");
+                        aux->flight_slot->finish=1;
+                        remove_first_slot(list_slot_flight);
+                        pthread_mutex_unlock(&mutex_ll);
+                      }
+                    }
+                  }
                 }
-                else if(valueL==1){
-                  #ifdef DEBUG
-                  printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
-                  #endif
-                  pthread_mutex_lock(&mutex_ll);
-                  strcpy(aux->flight_slot->pista,"01L");
-                  aux->flight_slot->finish=1;
-                  remove_first_slot(list_slot_flight);
-                  pthread_mutex_unlock(&mutex_ll);
+              }
+            else{//quer dizer q é o unico daquele tempo na lista
+                if(aux->flight_slot->type=='a'){//ve se e arrival
+                  sem_getvalue(sem_pistas_landing,&valueA);
+                  sem_getvalue(sem_pistas_departure,&valueD);
+                  if(valueA>=1 && valueD==2){//departure desocupado e arrival no minimo uma pista livre
+                    sem_getvalue(sem_28L,&valueL);
+                    sem_getvalue(sem_28R,&valueR);
+                    if(valueR==1){//ve em q pista aterra
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"28R");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                    else if(valueL==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"28L");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                  }
+                  else
+                    holding(aux->flight_slot->slot);
+                }
+                else{//é departure
+                  sem_getvalue(sem_pistas_landing,&valueA);
+                  sem_getvalue(sem_pistas_departure,&valueD);
+                  if(valueD>=1 && valueA==2){//ve se pode descolar
+                    sem_getvalue(sem_01L,&valueL);
+                    sem_getvalue(sem_01R,&valueR);
+                    if(valueR==1){//ve em q pista descola
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"01R");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                    else if(valueL==1){
+                      #ifdef DEBUG
+                      printf("%d %d %s\n", time_passed,aux->flight_slot->priority,aux->flight_slot->code);
+                      #endif
+                      pthread_mutex_lock(&mutex_ll);
+                      strcpy(aux->flight_slot->pista,"01L");
+                      aux->flight_slot->finish=1;
+                      remove_first_slot(list_slot_flight);
+                      pthread_mutex_unlock(&mutex_ll);
+                    }
+                  }
                 }
               }
             }
-          }
         }
         else{//caso seja o unico voo na lista
           if(aux->flight_slot->type=='a'){//ve se arrival

@@ -1,4 +1,4 @@
-//João Alexandre Santos Cruz 2018288
+//João Alexandre Santos Cruz 2018288464
 //André Cristóvão Ferreira da Silva 2018277921
 #include <stdlib.h>
 #include <stdio.h>
@@ -1030,11 +1030,11 @@ void ControlTower(){//torre de controlo
     exit(-1);
   }
   if(pthread_create(&threads_functions[3],NULL,departures_arrivals,NULL)!=0){
-    perror("error in receive_msq_urgency");
+    perror("error in departures_arrivals");
     exit(-1);
   }
   if(pthread_create(&threads_functions[4],NULL,hold_five,NULL)!=0){
-    perror("error in receive_msq_urgency");
+    perror("error in hold_five");
     exit(-1);
   }
   while(1){//fica a espera de receber mensagem do voo para adicionar as suas informações a queue e saber onde o colocar na lista
